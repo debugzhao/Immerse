@@ -1,0 +1,587 @@
+# Immerse 技术方案
+
+> 版本：v1.0 · 日期：2026-11-18 · 状态：待评审
+> App 名称 `Immerse` 为暂定名，Bundle ID 暂定 `com.debugzhao.immerse`
+
+## 0. 结论先行
+
+**用原生 SwiftUI 开发，最低支持 macOS 14，界面用毛玻璃效果（Material）代替 Liquid Glass，数据只存本地（SwiftData）。分 M1–M5 五个阶段交付。**
+
+| 关键决策 | 选择 | 一句话理由 |
+|---|---|---|
+| 技术栈 | SwiftUI + 少量 AppKit | 毛玻璃、通知、菜单栏都能直接用系统能力；体积小、启动快 |
+| 最低系统版本 | macOS 14 Sonoma | 你的系统是 macOS 14.7.6，不打算升级；SwiftData 和 `@Observable` 都从 14 开始支持 |
+| 视觉效果 | `Material` / `NSVisualEffectView` 毛玻璃 | Liquid Glass 需要 macOS 26，先不做；玻璃效果统一封装，以后升级只改一处 |
+| 数据存储 | SwiftData，仅本地 | 第一版不同步；数据访问统一走 `TaskRepository` 协议，以后接 iCloud 或 Notion 只换实现 |
+| 勿扰 | 调用「快捷指令」 | macOS 没有切换专注模式的公共 API，这是唯一稳定可行的办法 |
+| 工程管理 | XcodeGen（`project.yml`） | 工程配置是可读的文本，git diff 清楚，没有 `.pbxproj` 合并冲突 |
+| 分发 | 不开沙盒，本机 ad-hoc 签名 | 自己用不需要开发者账号；调用 `/usr/bin/shortcuts` 不能开沙盒 |
+
+---
+
+## 1. 开发环境
+
+### 1.1 现状与准备工作
+
+| 项目 | 现状 | 需要做的 |
+|---|---|---|
+| 操作系统 | macOS 14.7.6 | 不升级 |
+| Xcode | ❌ 未安装，只有命令行工具 | 安装 **Xcode 16.2**（macOS 14 上能装的最新版）。已实测：只有命令行工具时 SwiftData 的 `@Model` 宏无法编译 |
+| XcodeGen | ❌ 未安装 | 运行 `brew install xcodegen` |
+| Swift | 6.0.3（随 Xcode 16.2 提供） | 用 Swift 5 语言模式 + 完整并发检查（见 1.2） |
+
+安装 Xcode 后执行：
+
+```bash
+sudo xcode-select -s /Applications/Xcode.app
+```
+
+### 1.2 编译配置
+
+| 配置项 | 值 | 说明 |
+|---|---|---|
+| `MACOSX_DEPLOYMENT_TARGET` | 14.0 | |
+| `SWIFT_VERSION` | 5.0 | SwiftData 在 Swift 6 严格并发模式下还有不少警告和报错，先用 5 模式 |
+| `SWIFT_STRICT_CONCURRENCY` | complete | 提前暴露并发问题，以后切换到 Swift 6 成本低 |
+| `ENABLE_APP_SANDBOX` | NO | 需要执行 `/usr/bin/shortcuts` |
+| `ENABLE_HARDENED_RUNTIME` | YES | 保留，以后需要公证时不用再改 |
+| `CODE_SIGN_IDENTITY` | `-`（Sign to Run Locally） | ad-hoc 签名，不需要开发者账号 |
+
+---
+
+## 2. 整体架构
+
+### 2.1 分层
+
+```
+┌──────────────────────────────────────────────────────────────┐
+│ 视图层 Features                                              │
+│  Calendar · Sidebar · Inspector · CommandPalette · Focus UI  │
+├──────────────────────────────────────────────────────────────┤
+│ 状态层 Stores（@Observable，@MainActor）                       │
+│  CalendarStore · TaskStore · FocusEngine · SettingsStore     │
+├───────────────────────────────┬──────────────────────────────┤
+│ 数据层 Data                    │ 系统集成层 System             │
+│  TaskRepository（协议）         │  NotificationService          │
+│  SwiftDataTaskRepository      │  DoNotDisturbService          │
+│  SampleData                   │  ShortcutsRunner · PowerMonitor│
+└───────────────────────────────┴──────────────────────────────┘
+```
+
+- 采用 MVVM，用 `@Observable` 类实现 ViewModel，这里统一叫 **Store**
+- 视图只读取 Store 并调用 Store 的方法，不直接操作 `ModelContext`
+- 系统集成层的服务都先定义协议，单元测试时换成假实现
+
+### 2.2 依赖注入
+
+在 App 入口创建一个 `AppEnvironment`，统一持有所有 Store 和服务，通过 `.environment()` 传给视图：
+
+```swift
+@MainActor
+final class AppEnvironment {
+    let repository: TaskRepository
+    let taskStore: TaskStore
+    let calendarStore: CalendarStore
+    let focusEngine: FocusEngine
+    let settings: SettingsStore
+    let notifications: NotificationServicing
+    let dnd: DoNotDisturbServicing
+}
+```
+
+### 2.3 窗口与场景
+
+| 场景 | SwiftUI API | 用途 |
+|---|---|---|
+| 主窗口 | `WindowGroup` + `NavigationSplitView` | 侧栏 + 日历 + 右侧详情面板（`.inspector`，macOS 14 起可用） |
+| 菜单栏 | `MenuBarExtra(style: .window)` | 显示专注倒计时和控制按钮；没有专注时显示今日任务 |
+| 沉浸视图 | 单独的 `Window` 场景，进入后全屏 | 专注时的全屏视图 |
+| 设置 | `Settings` 场景 | 勿扰开关、快捷指令名称、默认时长等 |
+| 命令面板 | 主窗口上的浮层 | `⌘K` 呼出 |
+
+---
+
+## 3. 目录结构
+
+```
+schedule-management/
+├── project.yml                      # XcodeGen 配置
+├── Immerse/
+│   ├── App/
+│   │   ├── ImmerseApp.swift         # @main，各个 Scene
+│   │   ├── AppDelegate.swift        # 通知代理、启动时恢复专注状态
+│   │   └── AppEnvironment.swift
+│   ├── Models/
+│   │   ├── TaskItem.swift           # @Model
+│   │   ├── FocusSession.swift       # @Model
+│   │   ├── Priority.swift
+│   │   └── TaskStatus.swift
+│   ├── Data/
+│   │   ├── TaskRepository.swift     # 协议
+│   │   ├── SwiftDataTaskRepository.swift
+│   │   └── SampleData.swift         # 开发用的假数据
+│   ├── Stores/
+│   │   ├── TaskStore.swift
+│   │   ├── CalendarStore.swift      # 当前日期、视图模式、选中项
+│   │   └── SettingsStore.swift
+│   ├── Features/
+│   │   ├── Calendar/
+│   │   │   ├── CalendarContainerView.swift
+│   │   │   ├── WeekView.swift · DayView.swift · MonthView.swift
+│   │   │   ├── TimeGridView.swift   # 时间刻度 + 网格线
+│   │   │   ├── AllDayRowView.swift
+│   │   │   ├── EventBlockView.swift
+│   │   │   ├── NowIndicatorView.swift
+│   │   │   ├── EventLayoutEngine.swift   # 重叠日程的排布算法
+│   │   │   └── DragInteraction.swift     # 拖拽创建、移动、调整时长
+│   │   ├── Sidebar/
+│   │   │   ├── SidebarView.swift
+│   │   │   ├── MiniMonthView.swift
+│   │   │   ├── TodayTaskList.swift
+│   │   │   └── FilterView.swift
+│   │   ├── Inspector/
+│   │   │   └── TaskInspectorView.swift
+│   │   ├── CommandPalette/
+│   │   │   ├── CommandPaletteView.swift
+│   │   │   └── NaturalLanguageParser.swift
+│   │   └── Focus/
+│   │       ├── FocusEngine.swift
+│   │       ├── FocusState.swift
+│   │       ├── MenuBarFocusView.swift
+│   │       └── ImmersiveFocusView.swift
+│   ├── System/
+│   │   ├── NotificationService.swift
+│   │   ├── DoNotDisturbService.swift
+│   │   ├── ShortcutsRunner.swift
+│   │   ├── PowerMonitor.swift        # 监听睡眠和唤醒
+│   │   └── KeyboardShortcuts.swift
+│   ├── DesignSystem/
+│   │   ├── GlassSurface.swift        # 毛玻璃封装（预留 Liquid Glass 分支）
+│   │   ├── VisualEffectBackground.swift
+│   │   ├── Palette.swift             # 优先级配色
+│   │   └── Motion.swift              # spring 动画参数
+│   └── Resources/
+│       ├── Assets.xcassets
+│       ├── Info.plist
+│       └── Immerse.entitlements
+├── ImmerseTests/
+│   ├── FocusEngineTests.swift
+│   ├── NaturalLanguageParserTests.swift
+│   └── EventLayoutEngineTests.swift
+├── scripts/
+│   └── build.sh                      # 生成工程 → 编译 → 输出 .app
+└── docs/
+    └── TECH_DESIGN.md
+```
+
+> 模型命名为 `TaskItem` 而不是 `Task`，避免和 Swift 并发里的 `Task` 重名。
+
+---
+
+## 4. 数据模型
+
+### 4.1 字段对照（来自 Notion「主线任务日程」）
+
+| Notion 字段 | App 字段 | 类型 | 变化 |
+|---|---|---|---|
+| 任务 | `title` | `String` | — |
+| 日期（start / end / is_datetime） | `start` / `end` / `isAllDay` | `Date` / `Date?` / `Bool` | — |
+| 优先级（紧急 / 重要 / 普通） | `priority` | `Priority` 枚举 | — |
+| 状态（未开始 / 进行中 / 已完成） | `status` | `TaskStatus` 枚举 | 合并 Notion 的「完成」复选框 |
+| 完成 | — | — | ❌ 删除，和状态重复 |
+| 备注 | `notes` | `String`（Markdown） | — |
+| Place | `place` | `String?` | — |
+| — | `plannedMinutes` | `Int?` | 🆕 计划专注时长 |
+| — | `sessions` | `[FocusSession]` | 🆕 专注记录 |
+
+### 4.2 模型定义
+
+```swift
+enum Priority: Int, Codable, CaseIterable, Comparable {
+    case urgent = 0      // 紧急 · 红
+    case important = 1   // 重要 · 黄
+    case normal = 2      // 普通 · 紫
+}
+
+enum TaskStatus: String, Codable, CaseIterable {
+    case todo, inProgress, done   // 未开始 / 进行中 / 已完成
+}
+
+@Model
+final class TaskItem {
+    @Attribute(.unique) var id: UUID
+    var title: String
+    var start: Date
+    var end: Date?             // nil 表示单个时间点或单个全天
+    var isAllDay: Bool
+    var priorityRaw: Int       // SwiftData 对枚举谓词支持不好，存原始值
+    var statusRaw: String
+    var notes: String
+    var place: String?
+    var plannedMinutes: Int?
+    var createdAt: Date
+    var updatedAt: Date
+    @Relationship(deleteRule: .cascade, inverse: \FocusSession.task)
+    var sessions: [FocusSession] = []
+}
+
+@Model
+final class FocusSession {
+    @Attribute(.unique) var id: UUID
+    var task: TaskItem?
+    var startedAt: Date
+    var endedAt: Date?            // nil 表示正在进行
+    var plannedSeconds: Int       // 包含所有延长时间
+    var pausedSeconds: Int        // 暂停时间累计
+    var pausedAt: Date?           // 非 nil 表示当前处于暂停状态
+    var endReasonRaw: String?     // completed / finishedEarly / abandoned
+}
+```
+
+### 4.3 派生规则
+
+| 规则 | 说明 |
+|---|---|
+| 实际专注时长 | 计划时长没设置时，有时间段的任务取 `end - start`，全天任务默认 **60 分钟** |
+| 显示颜色 | 由 `priority` 决定；状态为 `done` 时整体变灰并加删除线 |
+| 同一时段排序 | 先按 `priority` 升序，再按 `start` 升序 |
+| 进行中的任务唯一 | 由 `FocusEngine` 保证，任何时候最多只有一个 `endedAt == nil` 的 `FocusSession` |
+
+### 4.4 数据访问抽象
+
+```swift
+@MainActor
+protocol TaskRepository {
+    func tasks(in interval: DateInterval) throws -> [TaskItem]
+    func search(_ keyword: String) throws -> [TaskItem]
+    func insert(_ task: TaskItem) throws
+    func delete(_ task: TaskItem) throws
+    func save() throws
+    func activeSession() throws -> FocusSession?
+    var undoManager: UndoManager? { get }
+}
+```
+
+- 撤销：创建 `ModelContainer` 时开启 `isUndoEnabled: true`，拖拽、编辑、删除都自动注册撤销操作
+- 以后做 Notion 同步时，新增 `NotionSyncService`，用 `notionPageId` 字段做映射，不改现有协议
+
+---
+
+## 5. 日历模块
+
+### 5.1 视图参数
+
+| 参数 | 默认值 |
+|---|---|
+| 默认视图 | 周视图，显示周末 |
+| 每周第一天 | 周一 |
+| 时间范围 | 0:00–24:00，打开时滚动到 8:00 |
+| 每小时高度 | 48pt（以后可以用 `⌘+` / `⌘-` 缩放） |
+| 拖拽吸附粒度 | 15 分钟 |
+| 最短日程 | 15 分钟 |
+
+### 5.2 重叠日程排布（`EventLayoutEngine`）
+
+和 Google Calendar、Notion Calendar 一样，采用「分簇 + 贪心分列」算法：
+
+1. 把当天有时间段的日程按 `start` 升序排列，`start` 相同时按 `priority` 排序
+2. **分簇**：时间上相互重叠（直接或间接）的日程归为一簇
+3. **分列**：簇内每个日程放到第一个「最后一个日程已经结束」的列；没有这样的列就新开一列
+4. **计算宽度**：`宽度 = 当天列宽 / 簇的列数`；如果右侧相邻列在该时段是空的，就向右扩展
+5. 输出每个日程的 `CGRect`，视图层只负责绘制
+
+这个算法是纯函数，便于单元测试，详见 `EventLayoutEngineTests`。
+
+### 5.3 交互
+
+| 操作 | 实现 |
+|---|---|
+| 拖拽框选创建 | 在网格空白处用 `DragGesture` 记录起止 y 坐标 → 换算成时间并吸附到 15 分钟 → 显示虚线预览块 → 松手后弹出快速创建浮层（标题输入框获得焦点） |
+| 移动 | 在日程块主体上拖拽；可以跨天（按 x 坐标换算日期） |
+| 调整时长 | 日程块上下边缘各留 6pt 热区，鼠标悬停时光标变成 `resizeUpDown` |
+| 点击 | 选中日程并打开右侧详情面板 |
+| 悬停 | 显示「▶ 开始专注」小按钮 |
+| 右键 | 菜单：开始专注 / 标记完成 / 修改优先级 / 删除 |
+| 当前时间线 | 用 `TimelineView(.everyMinute)` 驱动红线位置 |
+| 进行中的日程块 | 用 `phaseAnimator` 做边框和阴影的呼吸效果 |
+
+### 5.4 月视图与全天日程
+
+- 全天和跨天日程放在顶部的全天行，横跨多天显示成一条连续的条
+- 月视图每格最多显示 3 条，超出部分显示「+N」，点击后切换到日视图
+
+---
+
+## 6. 专注引擎（核心）
+
+### 6.1 状态机
+
+```
+            start(task)
+  ┌──────┐ ───────────▶ ┌─────────┐  pause   ┌────────┐
+  │ idle │              │ running │ ───────▶ │ paused │
+  └──────┘ ◀─────────── └─────────┘ ◀─────── └────────┘
+     ▲     finish /         │        resume       │
+     │     abandon          │ 剩余时间 ≤ 0          │ finish / abandon
+     │                      ▼                     │
+     │               ┌──────────────┐             │
+     └────────────── │ timeUp(等待)  │ ◀───────────┘
+       标记完成 /       └──────────────┘
+       延长 15 分钟会回到 running
+```
+
+### 6.2 计时原理
+
+**不依赖每秒累加，只依赖时间戳计算**，这样睡眠、App 重启都不会让时间算错：
+
+```
+已用时长 = (暂停中 ? pausedAt : now) − startedAt − pausedSeconds
+剩余时长 = plannedSeconds − 已用时长
+```
+
+- UI 刷新：`TimelineView(.periodic(from:by: 1))`，只在显示倒计时的视图里刷新，不触发全局重绘
+- 菜单栏标题：`MenuBarExtra` 的 label 绑定 `focusEngine.remainingText`，由一个 1 秒定时器更新
+- 数字变化动画：`.contentTransition(.numericText(countsDown: true))`
+- 防止 App Nap：专注期间调用 `ProcessInfo.processInfo.beginActivity(options: .userInitiatedAllowingIdleSystemSleep, ...)`，保证定时器按时触发，但不阻止系统睡眠
+
+### 6.3 开始专注的流程
+
+```
+start(task)
+ ├─ 1. 检查：已经有进行中的专注吗？有就弹窗让用户选择「结束当前专注并开始新的」或「取消」
+ ├─ 2. 新建 FocusSession（endedAt = nil），把 task.status 改为 inProgress，保存
+ ├─ 3. 安排一条兜底通知：在预计结束时间触发
+ ├─ 4. 异步开启勿扰（失败只提示，不影响计时）
+ └─ 5. 开始 App Nap 保护，菜单栏切换到倒计时
+```
+
+### 6.4 时间到的处理
+
+> ⚠️ 关键问题：如果勿扰还开着，系统会把我们的提醒通知也静音掉。
+
+所以「时间到」的处理**由 App 主动驱动**：
+
+1. 引擎检测到剩余时间 ≤ 0，进入 `timeUp` 状态
+2. **先关勿扰**，等待快捷指令执行完成（最多等 3 秒）
+3. 再发送通知并播放提示音（`NSSound`）；同时把主窗口或菜单栏面板弹到前台
+4. 取消第 6.3 步安排的兜底通知，避免重复提醒
+5. 用户点「标记完成」：写入 `endedAt`，`endReason = completed`，`task.status = done`
+6. 用户点「延长 15 分钟」：`plannedSeconds += 900`，回到 `running`，重新开启勿扰
+
+**兜底措施**：
+
+- 引导页建议用户在「系统设置 → 专注模式 → 勿扰模式 → 允许的 App」里加入 Immerse，这样即使勿扰没关掉，提醒也能到达
+- 如果 App 被杀掉，第 6.3 步安排的系统通知仍会按时出现
+
+### 6.5 睡眠、重启和崩溃恢复
+
+| 场景 | 处理 |
+|---|---|
+| 时间到时 Mac 在睡眠 | `PowerMonitor` 监听 `NSWorkspace.didWakeNotification`，唤醒后重新计算；已经超时就按 6.4 处理，`endedAt` 记为计划结束时间 |
+| App 正常退出 | 不结束专注，下次启动时恢复倒计时 |
+| App 崩溃或被强制退出 | 启动时查找 `endedAt == nil` 的 FocusSession：没超时就恢复；已超时就补上「时间到」的处理 |
+| 勿扰没被关掉 | 用 `UserDefaults` 记录「勿扰是由 Immerse 打开的」；启动时如果有这个标记但没有进行中的专注，就自动关闭勿扰 |
+
+### 6.6 用户操作
+
+| 操作 | 对计划时长的影响 | 对勿扰的影响 | 对兜底通知的影响 |
+|---|---|---|---|
+| 暂停 | 记录 `pausedAt` | 保持开启 | 取消 |
+| 继续 | `pausedSeconds += now − pausedAt` | 保持开启 | 按新的结束时间重新安排 |
+| +15 分钟 | `plannedSeconds += 900` | 保持开启 | 重新安排 |
+| 提前完成 | 结束，`finishedEarly` | 关闭 | 取消 |
+| 放弃 | 结束，`abandoned`，任务状态改回 todo | 关闭 | 取消 |
+
+---
+
+## 7. 系统集成
+
+### 7.1 勿扰（`DoNotDisturbService`）
+
+**实现方式**：用户在「快捷指令」App 里建两个快捷指令，App 用 `Process` 调用 `/usr/bin/shortcuts run "<名称>"` 执行。
+
+| 快捷指令（默认名称） | 内容 |
+|---|---|
+| `Immerse 开启勿扰` | 操作「设定专注模式」→ 打开「勿扰模式」→ 持续到「关闭」 |
+| `Immerse 关闭勿扰` | 操作「设定专注模式」→ 关闭「勿扰模式」 |
+
+```swift
+protocol DoNotDisturbServicing {
+    func checkSetup() async -> SetupStatus     // 执行 `shortcuts list`，确认两个快捷指令都存在
+    func enable() async throws
+    func disable() async throws
+}
+```
+
+| 要点 | 处理 |
+|---|---|
+| 执行方式 | 放在后台执行，不阻塞主线程；超时 5 秒 |
+| 失败处理 | 在菜单栏显示一个提示，计时照常进行 |
+| 首次引导 | 分步说明 + 截图 + 「打开快捷指令」按钮（`shortcuts://` 链接）+「重新检测」按钮 |
+| 可选优化 | 用 `shortcuts sign` 生成两个签名好的 `.shortcut` 文件放进 App，用户双击即可导入，省去手动创建（M4 视情况做） |
+| 设置项 | 勿扰总开关；两个快捷指令的名称可以修改 |
+| 专注模式选择 | 默认用系统的「勿扰模式」；用户也可以在快捷指令里换成自建的专注模式，App 不需要改动 |
+
+### 7.2 通知（`NotificationService`）
+
+- 使用 `UNUserNotificationCenter`，首次开始专注时请求权限
+- 注册通知类别 `FOCUS_END`，包含两个操作按钮：`COMPLETE`（标记完成）、`EXTEND_15`（再延长 15 分钟）
+- 实现 `willPresent` 代理方法，App 在前台时也显示横幅并播放声音
+- 用户点击操作按钮后，`AppDelegate` 收到回调并转给 `FocusEngine` 处理
+
+### 7.3 键盘快捷键
+
+| 快捷键 | 功能 | 实现 |
+|---|---|---|
+| `⌘N` | 新建日程 | `.commands` 菜单项 |
+| `⌘K` | 打开命令面板 | `.commands` 菜单项 |
+| `⌘F` | 搜索 | `.commands` 菜单项 |
+| `⌘Z` / `⇧⌘Z` | 撤销 / 重做 | 系统自带，基于 `UndoManager` |
+| `T` | 回到今天 | 主窗口 `.onKeyPress`，输入框获得焦点时不响应 |
+| `D` / `W` / `M` | 切换日 / 周 / 月视图 | 同上 |
+| `J` / `K`、`←` / `→` | 上一页 / 下一页 | 同上 |
+| `Space` | 开始或暂停专注（针对选中的任务） | 同上 |
+| `⌫` | 删除选中的日程 | 同上，删除后显示可撤销的提示 |
+| `Esc` | 关闭浮层，或取消选中 | 同上 |
+
+---
+
+## 8. 命令面板与自然语言解析
+
+### 8.1 命令面板
+
+- `⌘K` 呼出居中的毛玻璃浮层，同时支持「执行命令」和「快速新建」
+- 输入内容时实时显示解析结果预览，例如：`📅 11月19日 15:00–16:00 · 🟡 重要 · 阅读《第一性原理》`
+- 按 `↩` 创建日程，按 `⌘↩` 创建并立即开始专注
+
+### 8.2 解析规则（本地规则引擎，不联网）
+
+| 类别 | 支持的写法 | 示例 |
+|---|---|---|
+| 相对日期 | 今天、明天、后天、大后天 | `明天` |
+| 星期 | 周X / 星期X / 下周X / 本周X | `下周三` |
+| 绝对日期 | M月D日、M/D、M-D | `11月20日`、`11/20` |
+| 时段 | 上午、中午、下午、晚上 + X点 / X点半 / HH:mm | `下午3点半`、`20:30` |
+| 时间段 | X点到Y点、HH:mm-HH:mm | `3点到5点` |
+| 时长 | N小时、N分钟、Nh、Nmin、半小时 | `1小时`、`45min` |
+| 优先级 | 紧急、重要、普通、`!!!`、`!!`、`!` | `重要` |
+| 地点 | `@地点` | `@图书馆` |
+| 标题 | 去掉上面识别出的部分后剩下的文本；`《》` 原样保留 | `阅读《第一性原理》` |
+
+- 没写时间就创建为全天日程；只写了时长就作为计划专注时长
+- 实现方式：先用正则从左到右识别各类片段，再组装成结果；解析器是纯函数，有 30 个以上的单元测试用例
+
+---
+
+## 9. 设计系统
+
+### 9.1 毛玻璃封装（为以后切换到 Liquid Glass 预留）
+
+```swift
+enum GlassStyle { case sidebar, toolbar, panel, overlay, immersive }
+
+extension View {
+    /// 所有玻璃效果都统一走这个方法；以后升级到 macOS 26 只需要改这里
+    func glassSurface(_ style: GlassStyle, cornerRadius: CGFloat = 12) -> some View {
+        modifier(GlassSurfaceModifier(style: style, cornerRadius: cornerRadius))
+    }
+}
+
+struct GlassSurfaceModifier: ViewModifier {
+    let style: GlassStyle
+    let cornerRadius: CGFloat
+
+    func body(content: Content) -> some View {
+        #if compiler(>=6.2)
+        if #available(macOS 26, *) {
+            // 以后在这里接入 .glassEffect(...)
+        }
+        #endif
+        content
+            .background(material(for: style), in: .rect(cornerRadius: cornerRadius))
+            .overlay(RoundedRectangle(cornerRadius: cornerRadius)
+                .strokeBorder(.white.opacity(0.12), lineWidth: 0.5))   // 玻璃边缘的高光
+            .shadow(color: .black.opacity(0.08), radius: 12, y: 4)
+    }
+}
+```
+
+| 位置 | 材质 | 实现方式 |
+|---|---|---|
+| 窗口背景 | 透出桌面的毛玻璃 | `NSVisualEffectView`，`material = .underWindowBackground`，`blendingMode = .behindWindow` |
+| 侧栏 | `.sidebar` | `NavigationSplitView` 自带 |
+| 顶栏 | `.bar` | `.toolbarBackground` |
+| 详情面板、命令面板、快速创建浮层 | `.ultraThinMaterial` / `.regularMaterial` | `glassSurface(.panel / .overlay)` |
+| 沉浸视图 | `.hudWindow` + 当前任务优先级颜色的径向渐变 | `NSVisualEffectView` |
+| 日历网格 | 不透明，保证文字清晰 | — |
+
+### 9.2 配色
+
+| 语义 | 浅色模式 | 深色模式 | 用在哪里 |
+|---|---|---|---|
+| 紧急 | `#E5484D` | `#FF6369` | 日程块填充（透明度 0.18）+ 左侧 3pt 色条 |
+| 重要 | `#F5A524` | `#FFC53D` | 同上 |
+| 普通 | `#8E4EC6` | `#B07EE8` | 同上 |
+| 当前时间线 | `systemRed` | `systemRed` | |
+| 已完成 | `secondaryLabel` | `secondaryLabel` | 加删除线 |
+
+### 9.3 字体与动画
+
+- 字体：系统字体（SF Pro）；倒计时数字用 `.monospacedDigit()`，避免数字跳动；图标统一用 SF Symbols
+- 动画：统一用 `Motion.snappy = .spring(response: 0.3, dampingFraction: 0.85)`
+- 尊重系统「减少动态效果」设置：开启时关闭呼吸效果和 spring 动画
+
+---
+
+## 10. 测试策略
+
+| 层级 | 覆盖内容 | 工具 |
+|---|---|---|
+| 单元测试 | `FocusEngine` 状态切换、计时计算（注入一个可控时钟）、`EventLayoutEngine`、`NaturalLanguageParser` | Swift Testing |
+| 集成测试 | `SwiftDataTaskRepository` 增删改查（用内存数据库） | Swift Testing |
+| 手工验收 | 每个阶段的验收标准（见第 11 节） | 运行 App + 截图 |
+
+`FocusEngine` 不直接调用 `Date()`，而是依赖一个 `Clock` 协议。测试时注入假时钟，几毫秒就能跑完「专注 1 小时 + 睡眠 + 唤醒」这类场景。
+
+---
+
+## 11. 里程碑
+
+| 阶段 | 内容 | 验收标准 |
+|---|---|---|
+| **M1** 骨架 | XcodeGen 工程、数据模型、假数据、毛玻璃封装、周视图（时间网格、日程块、全天行、当前时间线、重叠排布）、侧栏骨架 | 能看到带假数据的周视图；优先级颜色正确；重叠的日程正确并排；浅色和深色模式都正常 |
+| **M2** 日程管理 | 拖拽创建、移动、调整时长；详情面板；`⌘N`；删除和撤销；搜索和筛选；今日任务列表 | 所有增删改查都能在日历上完成；`⌘Z` 能撤销拖拽和删除 |
+| **M3** 专注计时 | `FocusEngine`、菜单栏倒计时、通知和操作按钮、睡眠和崩溃恢复 | 1 分钟的测试任务能按时弹出通知；睡眠 2 分钟后唤醒，剩余时间正确；强制退出后重新打开能恢复 |
+| **M4** 勿扰 | `DoNotDisturbService`、引导页、设置页、勿扰状态兜底恢复 | 开始专注后系统进入勿扰，时间到了先退出勿扰再提醒；快捷指令缺失时有清楚的提示 |
+| **M5** 完善 | 日视图和月视图、`⌘K` 自然语言解析、沉浸视图、全部快捷键、动画打磨 | 风格统一；快捷键全部可用；自然语言解析的单元测试全部通过 |
+| M6（可选） | 导入或同步 Notion「主线任务日程」、专注统计 | 另行评审 |
+
+---
+
+## 12. 风险与应对
+
+| 风险 | 影响 | 应对 |
+|---|---|---|
+| 系统没有切换勿扰的公共 API | 必须让用户手动建快捷指令 | 引导页 + 自动检测 + 可选的签名快捷指令文件 |
+| 勿扰会把我们的提醒静音 | 时间到了用户收不到提醒 | 由 App 主动驱动：先关勿扰再提醒；并引导用户把 Immerse 加入勿扰的允许列表 |
+| SwiftUI 在 macOS 14 上自定义拖拽和光标的能力有限 | 拖拽手感不如 Notion Calendar | 必要时在时间网格这一层改用 `NSViewRepresentable`，用 AppKit 处理鼠标事件 |
+| SwiftData 早期版本的 bug（macOS 14 上的谓词和关系） | 查询可能出错 | 谓词只用基础类型字段（枚举存原始值）；复杂的过滤放在内存里做；所有访问都经过 Repository，出问题可以换成 Core Data |
+| App Nap 导致计时器延迟 | 提醒晚到 | 专注期间使用 `beginActivity`；同时有系统兜底通知 |
+| 没有 Xcode 无法编译 | 阻塞开发 | 开工前安装 Xcode 16.2（见 1.1） |
+
+---
+
+## 13. 已采用的默认值
+
+以下问题没有收到反对意见，按默认方案执行，后续可以调整：
+
+| 问题 | 默认方案 |
+|---|---|
+| App 名称 | `Immerse`（暂定） |
+| 全天任务能否开始专注 | 可以；没设计划时长就默认 60 分钟 |
+| 实际专注时间和日程安排的时间不一致 | 不移动日程，在日历上另外叠加细条，显示实际专注的时间段 |
+| 每周第一天 | 周一 |
+| 自然语言解析 | 本地规则，不联网 |
+| 勿扰使用哪种专注模式 | 系统「勿扰模式」 |
+| 导入 Notion 数据 | 放到 M6 |
+| 签名方式 | 本机 ad-hoc 签名，不公证 |
