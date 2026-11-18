@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// 侧栏「今天」任务列表：按优先级、开始时间排序。勾选完成在 M2 接入。
+/// 侧栏「今天」任务列表：按优先级、开始时间排序，点圆圈勾选完成
 struct TodayTaskList: View {
     @Environment(TaskStore.self) private var taskStore
     @Environment(CalendarStore.self) private var store
@@ -25,6 +25,7 @@ struct TodayTaskList: View {
                                 store.anchorDate = .now
                                 store.select(task.id)
                             }
+                            .taskContextMenu(task)
                     }
                 }
             }
@@ -35,6 +36,8 @@ struct TodayTaskList: View {
         let calendar = store.calendar
         guard let today = calendar.dateInterval(of: .day, for: .now) else { return [] }
         return taskStore.tasks(in: today).sorted { a, b in
+            // 已完成的沉到底部
+            if (a.status == .done) != (b.status == .done) { return b.status == .done }
             if a.priority != b.priority { return a.priority < b.priority }
             return a.start < b.start
         }
@@ -46,15 +49,24 @@ private struct TodayTaskRow: View {
     let isSelected: Bool
 
     @Environment(CalendarStore.self) private var store
+    @Environment(TaskStore.self) private var taskStore
 
     private var isDone: Bool { task.status == .done }
 
     var body: some View {
         HStack(spacing: 8) {
-            Image(systemName: isDone ? "checkmark.circle.fill" : "circle")
-                .foregroundStyle(task.priority.color)
-                .font(.system(size: 13))
-            Text(task.title)
+            Button {
+                withAnimation(Motion.snappy) { taskStore.toggleDone(task.id) }
+            } label: {
+                Image(systemName: isDone ? "checkmark.circle.fill" : task.status == .inProgress ? "circle.dotted.circle" : "circle")
+                    .foregroundStyle(task.priority.color)
+                    .font(.system(size: 13))
+                    .contentTransition(.symbolEffect(.replace))
+            }
+            .buttonStyle(.plain)
+            .help(isDone ? "标记为未完成" : "标记完成")
+
+            Text(task.displayTitle)
                 .font(.system(size: 12))
                 .strikethrough(isDone)
                 .foregroundStyle(isDone ? .secondary : .primary)

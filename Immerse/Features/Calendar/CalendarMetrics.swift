@@ -22,6 +22,23 @@ enum CalendarMetrics {
     static func yOffset(for date: Date, dayStart: Date) -> CGFloat {
         CGFloat(date.timeIntervalSince(dayStart) / 3600) * hourHeight
     }
+
+    /// 拖拽吸附粒度（分钟）
+    static let snapMinutes = 15
+
+    /// 网格上的 y 坐标对应的时间，吸附到 15 分钟，并限制在当天范围内
+    static func date(forY y: CGFloat, dayStart: Date) -> Date {
+        let minutes = Double(y / hourHeight) * 60
+        let snapped = (minutes / Double(snapMinutes)).rounded() * Double(snapMinutes)
+        let clamped = min(max(snapped, 0), 24 * 60)
+        return dayStart.addingTimeInterval(clamped * 60)
+    }
+
+    /// 拖动的竖直位移对应的分钟数，吸附到 15 分钟
+    static func snappedMinutes(forDeltaY dy: CGFloat) -> Int {
+        let minutes = Double(dy / hourHeight) * 60
+        return Int((minutes / Double(snapMinutes)).rounded()) * snapMinutes
+    }
 }
 
 enum TimeText {

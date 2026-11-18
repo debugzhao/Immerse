@@ -1,12 +1,13 @@
 import SwiftUI
 
-/// 左侧栏：迷你月历 + 今日任务。背景由 NavigationSplitView 提供系统侧栏毛玻璃。
+/// 左侧栏：迷你月历 + 今日任务 + 筛选。背景由 NavigationSplitView 提供系统侧栏毛玻璃。
 struct SidebarView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 24) {
                 MiniMonthView()
                 TodayTaskList()
+                FilterView()
             }
             .padding(.horizontal, 14)
             .padding(.vertical, 12)

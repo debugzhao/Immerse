@@ -10,7 +10,7 @@ struct TimeGridCalendarView: View {
     private var calendar: Calendar { calendarStore.calendar }
 
     var body: some View {
-        let tasks = taskStore.tasks(in: visibleInterval)
+        let tasks = taskStore.tasks(in: visibleInterval).filter(calendarStore.passesFilter)
         let allDay = tasks.filter(\.isAllDay)
         let timed = tasks.filter { !$0.isAllDay }
 
@@ -35,8 +35,15 @@ struct TimeGridCalendarView: View {
                     // 留白，避免滚动到顶部时时间标签（向上偏移了半行字高）被截掉
                     .padding(.vertical, 10)
                 }
-                .onAppear {
-                    proxy.scrollTo(CalendarMetrics.scrollAnchorID(CalendarMetrics.initialScrollHour), anchor: .top)
+                // 首屏时其它状态（选中、搜索）可能同时在变，同步滚动会被打断，所以等一帧再滚
+                .task {
+                    try? await Task.sleep(for: .milliseconds(60))
+                    proxy.scrollTo(CalendarMetrics.scrollAnchorID(calendarStore.scrollRequest.hour), anchor: .top)
+                }
+                .onChange(of: calendarStore.scrollRequest) { _, request in
+                    withAnimation(Motion.gentle) {
+                        proxy.scrollTo(CalendarMetrics.scrollAnchorID(request.hour), anchor: .top)
+                    }
                 }
             }
         }

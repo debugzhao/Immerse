@@ -4,9 +4,9 @@ import SwiftData
 @MainActor
 final class SwiftDataTaskRepository: TaskRepository {
     /// 持有容器，保证整个 App 生命周期内数据库不被释放
-    private let container: ModelContainer
+    let container: ModelContainer
     private let calendar: Calendar
-    private var context: ModelContext { container.mainContext }
+    var context: ModelContext { container.mainContext }
 
     /// 跨天任务最多回溯这么久去查，超过 60 天的超长任务极少，换来谓词能走索引
     private let lookback: TimeInterval = 60 * 24 * 3600
@@ -29,6 +29,25 @@ final class SwiftDataTaskRepository: TaskRepository {
             .filter { $0.displayInterval(in: calendar).overlapsHalfOpen(interval) }
     }
 
+    func task(id: UUID) throws -> TaskSnapshot? {
+        try item(id: id)?.snapshot
+    }
+
+    func search(_ keyword: String, limit: Int) throws -> [TaskSnapshot] {
+        var descriptor = FetchDescriptor<TaskItem>(
+            predicate: #Predicate {
+                $0.title.localizedStandardContains(keyword) || $0.notes.localizedStandardContains(keyword)
+            },
+            sortBy: [SortDescriptor(\.start, order: .reverse)]
+        )
+        descriptor.fetchLimit = limit
+        return try context.fetch(descriptor).map(\.snapshot)
+    }
+
+    func allTasks() throws -> [TaskSnapshot] {
+        try context.fetch(FetchDescriptor<TaskItem>(sortBy: [SortDescriptor(\.start)])).map(\.snapshot)
+    }
+
     func isEmpty() throws -> Bool {
         try context.fetchCount(FetchDescriptor<TaskItem>()) == 0
     }
@@ -38,5 +57,26 @@ final class SwiftDataTaskRepository: TaskRepository {
             context.insert(TaskItem(snapshot: snapshot))
         }
         try context.save()
+    }
+
+    func upsert(_ snapshot: TaskSnapshot) throws {
+        if let existing = try item(id: snapshot.id) {
+            existing.apply(snapshot)
+        } else {
+            context.insert(TaskItem(snapshot: snapshot))
+        }
+        try context.save()
+    }
+
+    func delete(id: UUID) throws {
+        guard let existing = try item(id: id) else { return }
+        context.delete(existing)
+        try context.save()
+    }
+
+    func item(id: UUID) throws -> TaskItem? {
+        var descriptor = FetchDescriptor<TaskItem>(predicate: #Predicate { $0.id == id })
+        descriptor.fetchLimit = 1
+        return try context.fetch(descriptor).first
     }
 }

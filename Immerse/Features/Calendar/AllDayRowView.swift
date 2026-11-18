@@ -1,11 +1,14 @@
 import SwiftUI
 
-/// 日期栏下方的全天行：全天 / 跨天任务画成横条，多条时分道堆叠
+/// 日期栏下方的全天行：全天 / 跨天任务画成横条，多条时分道堆叠。
+/// 支持左右拖动整条移动日期；双击空白处新建全天日程。
 struct AllDayRowView: View {
     let days: [Date]
     let tasks: [TaskSnapshot]
 
     @Environment(CalendarStore.self) private var store
+    @Environment(TaskStore.self) private var taskStore
+    @State private var drag: (task: TaskSnapshot, days: Int)?
 
     private struct Bar: Identifiable {
         let task: TaskSnapshot
@@ -17,7 +20,7 @@ struct AllDayRowView: View {
     var body: some View {
         let bars = makeBars()
         let lanes = EventLayoutEngine.allDayLanes(bars.map { ($0.id, $0.startDay, $0.endDay) })
-        let laneCount = (lanes.values.max() ?? -1) + 1
+        let laneCount = (lanes.values.max() ?? -1) + 1 + (draftDayIndex != nil ? 1 : 0)
         let height = max(CalendarMetrics.allDayMinHeight, CGFloat(laneCount) * CalendarMetrics.allDayLaneHeight + 6)
 
         HStack(spacing: 0) {
@@ -32,26 +35,77 @@ struct AllDayRowView: View {
             GeometryReader { geometry in
                 let columnWidth = geometry.size.width / CGFloat(max(days.count, 1))
                 ZStack(alignment: .topLeading) {
-                    // 列分隔线，与下方时间网格对齐
+                    // 列分隔线 + 双击新建的热区，与下方时间网格对齐
                     HStack(spacing: 0) {
-                        ForEach(days, id: \.self) { _ in
+                        ForEach(days, id: \.self) { day in
                             Rectangle().fill(Palette.gridLine).frame(width: 0.5)
-                            Spacer(minLength: 0)
+                            Color.clear
+                                .contentShape(Rectangle())
+                                .onTapGesture(count: 2) {
+                                    store.select(nil)
+                                    store.draft = DraftEvent(start: day, end: day, isAllDay: true)
+                                }
+                                .onTapGesture { store.select(nil) }
                         }
                     }
+
                     ForEach(bars) { bar in
                         let lane = CGFloat(lanes[bar.id] ?? 0)
                         let span = CGFloat(bar.endDay - bar.startDay + 1)
+                        let shift = drag?.task.id == bar.id ? CGFloat(drag?.days ?? 0) : 0
                         AllDayBarView(task: bar.task, isSelected: store.selectedTaskID == bar.id)
                             .frame(width: columnWidth * span - 4, height: CalendarMetrics.allDayLaneHeight - 3)
-                            .offset(x: columnWidth * CGFloat(bar.startDay) + 2,
+                            .gesture(moveGesture(bar.task, columnWidth: columnWidth))
+                            .offset(x: columnWidth * (CGFloat(bar.startDay) + shift) + 2,
                                     y: lane * CalendarMetrics.allDayLaneHeight + 3)
+                    }
+
+                    if let index = draftDayIndex {
+                        draftBar
+                            .frame(width: columnWidth - 4, height: CalendarMetrics.allDayLaneHeight - 3)
+                            .offset(x: columnWidth * CGFloat(index) + 2,
+                                    y: CGFloat(laneCount - 1) * CalendarMetrics.allDayLaneHeight + 3)
                     }
                 }
             }
         }
         .frame(height: height)
         .animation(Motion.snappy, value: laneCount)
+    }
+
+    private var draftDayIndex: Int? {
+        guard let draft = store.draft, draft.isAllDay else { return nil }
+        return days.firstIndex { store.calendar.isDate($0, inSameDayAs: draft.start) }
+    }
+
+    private var draftBar: some View {
+        let shape = RoundedRectangle(cornerRadius: 5, style: .continuous)
+        return Text("新日程")
+            .font(.system(size: 11, weight: .semibold))
+            .padding(.horizontal, 6)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
+            .background(Color.accentColor.opacity(0.14), in: shape)
+            .overlay { shape.strokeBorder(Color.accentColor, style: StrokeStyle(lineWidth: 1.2, dash: [4, 3])) }
+            .popover(
+                isPresented: Binding(get: { store.draft?.isAllDay == true }, set: { if !$0 { store.draft = nil } }),
+                arrowEdge: .bottom
+            ) {
+                QuickCreateView()
+            }
+    }
+
+    private func moveGesture(_ task: TaskSnapshot, columnWidth: CGFloat) -> some Gesture {
+        DragGesture(minimumDistance: 3)
+            .onChanged { value in
+                if drag == nil { store.select(task.id) }
+                drag = (task, Int((value.translation.width / columnWidth).rounded()))
+            }
+            .onEnded { _ in
+                defer { drag = nil }
+                guard let days = drag?.days, days != 0 else { return }
+                let updated = EventEditing.apply(.move, to: task, minutes: 0, days: days, calendar: store.calendar)
+                taskStore.update(updated, actionName: "移动日程")
+            }
     }
 
     private func makeBars() -> [Bar] {
@@ -79,7 +133,7 @@ private struct AllDayBarView: View {
 
     var body: some View {
         let shape = RoundedRectangle(cornerRadius: 5, style: .continuous)
-        Text(task.title)
+        Text(task.displayTitle)
             .font(.system(size: 11, weight: .semibold))
             .strikethrough(isDone)
             .foregroundStyle(isDone ? .secondary : .primary)
@@ -94,8 +148,10 @@ private struct AllDayBarView: View {
             .overlay {
                 if isSelected { shape.strokeBorder(color, lineWidth: 1.2) }
             }
+            .modifier(BreathingGlow(isActive: task.status == .inProgress, color: color))
             .contentShape(shape)
             .onTapGesture { store.select(task.id) }
-            .help("\(task.title)\n全天 · \(task.priority.title) · \(task.status.title)")
+            .taskContextMenu(task)
+            .help("\(task.displayTitle)\n全天 · \(task.priority.title) · \(task.status.title)")
     }
 }

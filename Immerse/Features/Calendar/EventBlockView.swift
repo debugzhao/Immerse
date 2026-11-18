@@ -18,24 +18,30 @@ struct EventBlockView: View {
             Rectangle()
                 .fill(color)
                 .frame(width: 3)
-            VStack(alignment: .leading, spacing: 1) {
-                Text(task.title)
-                    .font(.system(size: 12, weight: .semibold))
-                    .strikethrough(isDone)
-                    .lineLimit(height > 44 ? 2 : 1)
-                if height >= 34 {
-                    Text(subtitle)
-                        .font(.system(size: 11))
-                        .monospacedDigit()
-                        .foregroundStyle(.secondary)
-                        .lineLimit(1)
+            GeometryReader { geometry in
+                // 窄块（多个日程并排时）放不下时间，把空间都留给标题，按高度能放几行就放几行
+                let isNarrow = geometry.size.width < 64
+                let showsSubtitle = !isNarrow && height >= 34
+                let titleLines = max(1, Int((height - (showsSubtitle ? 22 : 6)) / 15))
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(task.displayTitle)
+                        .font(.system(size: isNarrow ? 11 : 12, weight: .semibold))
+                        .strikethrough(isDone)
+                        .lineLimit(min(titleLines, showsSubtitle ? 2 : 6))
+                    if showsSubtitle {
+                        Text(subtitle)
+                            .font(.system(size: 11))
+                            .monospacedDigit()
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                    }
                 }
+                .foregroundStyle(isDone ? .secondary : .primary)
+                .padding(.leading, isNarrow ? 4 : 6)
+                .padding(.trailing, isNarrow ? 2 : 4)
+                .padding(.vertical, height >= 34 ? 4 : 2)
+                .frame(width: geometry.size.width, height: geometry.size.height, alignment: .topLeading)
             }
-            .foregroundStyle(isDone ? .secondary : .primary)
-            .padding(.leading, 6)
-            .padding(.trailing, 4)
-            .padding(.vertical, height >= 34 ? 4 : 2)
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         }
         .background(color.opacity(fillOpacity), in: shape)
         .clipShape(shape)
@@ -47,6 +53,7 @@ struct EventBlockView: View {
         .modifier(BreathingGlow(isActive: task.status == .inProgress, color: color))
         .contentShape(shape)
         .onTapGesture { store.select(task.id) }
+        .taskContextMenu(task)
         .help(tooltip)
         .animation(Motion.snappy, value: isSelected)
     }
@@ -64,7 +71,7 @@ struct EventBlockView: View {
     }
 
     private var tooltip: String {
-        "\(task.title)\n\(subtitle)\n\(task.priority.title) · \(task.status.title)"
+        "\(task.displayTitle)\n\(subtitle)\n\(task.priority.title) · \(task.status.title)"
     }
 }
 
@@ -89,6 +96,47 @@ struct BreathingGlow: ViewModifier {
                     .shadow(color: color.opacity(glowing ? 0.5 : 0.1), radius: glowing ? 8 : 2)
             } animation: { _ in
                 Motion.breathing
+            }
+        }
+    }
+}
+
+// MARK: - 右键菜单
+
+extension View {
+    /// 日程的右键菜单，日历块、全天条、侧栏列表共用
+    func taskContextMenu(_ task: TaskSnapshot) -> some View {
+        modifier(TaskContextMenu(task: task))
+    }
+}
+
+private struct TaskContextMenu: ViewModifier {
+    let task: TaskSnapshot
+    @Environment(TaskStore.self) private var taskStore
+    @Environment(CalendarStore.self) private var store
+
+    func body(content: Content) -> some View {
+        content.contextMenu {
+            Button(task.status == .done ? "标记为未完成" : "标记完成") {
+                taskStore.toggleDone(task.id)
+            }
+            Menu("优先级") {
+                ForEach(Priority.allCases) { priority in
+                    Button {
+                        taskStore.setPriority(priority, for: task.id)
+                    } label: {
+                        if priority == task.priority {
+                            Label(priority.title, systemImage: "checkmark")
+                        } else {
+                            Text(priority.title)
+                        }
+                    }
+                }
+            }
+            Divider()
+            Button("删除", role: .destructive) {
+                if store.selectedTaskID == task.id { store.select(nil) }
+                taskStore.delete(id: task.id)
             }
         }
     }
