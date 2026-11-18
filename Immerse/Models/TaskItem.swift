@@ -18,7 +18,8 @@ final class TaskItem {
     var createdAt: Date
     var updatedAt: Date
 
-    @Relationship(deleteRule: .cascade, inverse: \FocusSession.task)
+    // 删除任务时保留专注记录（断开关联），专注统计不会因此丢数据
+    @Relationship(deleteRule: .nullify, inverse: \FocusSession.task)
     var sessions: [FocusSession] = []
 
     init(snapshot: TaskSnapshot, now: Date = .now) {

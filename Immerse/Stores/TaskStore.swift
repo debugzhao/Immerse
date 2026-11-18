@@ -114,6 +114,16 @@ final class TaskStore {
         update(snapshot, actionName: status == .done ? "标记完成" : "修改状态")
     }
 
+    /// 专注引擎修改状态：不进撤销栈，否则 ⌘Z 会把「进行中」改回去，和计时状态对不上
+    func setStatusWithoutUndo(_ status: TaskStatus, for id: UUID) {
+        guard var snapshot = task(id: id), snapshot.status != status else { return }
+        snapshot.status = status
+        breakCoalescing()
+        undoManager.disableUndoRegistration()
+        defer { undoManager.enableUndoRegistration() }
+        applyUpsert(snapshot, previous: nil)
+    }
+
     func toggleDone(_ id: UUID) {
         guard let snapshot = task(id: id) else { return }
         setStatus(snapshot.status == .done ? .todo : .done, for: id)

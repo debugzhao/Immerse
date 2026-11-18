@@ -4,6 +4,7 @@ import SwiftUI
 struct CalendarContainerView: View {
     @Environment(CalendarStore.self) private var store
     @Environment(TaskStore.self) private var taskStore
+    @Environment(FocusEngine.self) private var focusEngine
     @FocusState private var isCalendarFocused: Bool
     @FocusState private var isSearchFocused: Bool
 
@@ -45,6 +46,7 @@ struct CalendarContainerView: View {
                 store.step(press.key == .leftArrow ? -1 : 1)
                 return .handled
             }
+            .onKeyPress(.space) { toggleFocus() }
             .onKeyPress(.delete) { deleteSelection() }
             .onKeyPress(.deleteForward) { deleteSelection() }
             .onKeyPress(.escape) {
@@ -138,6 +140,17 @@ struct CalendarContainerView: View {
             get: { store.selectedTaskID != nil },
             set: { if !$0 { store.select(nil) } }
         )
+    }
+
+    /// Space：选中的日程正在专注就暂停 / 继续，否则开始专注；没选中时控制当前专注
+    private func toggleFocus() -> KeyPress.Result {
+        if let task = taskStore.task(id: store.selectedTaskID), !focusEngine.isFocusing(on: task.id) {
+            focusEngine.requestStart(task)
+            return .handled
+        }
+        guard focusEngine.isActive else { return .ignored }
+        focusEngine.togglePause()
+        return .handled
     }
 
     private func deleteSelection() -> KeyPress.Result {

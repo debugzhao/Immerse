@@ -34,6 +34,19 @@ enum DebugSnapshot {
         if let keyword = env["IMMERSE_SEARCH"] {
             environment.calendarStore.searchText = keyword
         }
+        // IMMERSE_FOCUS=<标题关键字>[,秒数]：开始专注；秒数很短时可以截到「时间到」面板
+        if let spec = env["IMMERSE_FOCUS"] {
+            let parts = spec.split(separator: ",").map(String.init)
+            if var task = environment.taskStore.search(parts[0]).first {
+                if parts.count > 1, let seconds = Int(parts[1]) {
+                    task.plannedMinutes = 1
+                    environment.focusEngine.start(task)
+                    environment.focusEngine.extend(seconds: seconds - 60)
+                } else {
+                    environment.focusEngine.start(task)
+                }
+            }
+        }
 
         Task { @MainActor in
             // 等窗口布局、滚动定位、动画都完成

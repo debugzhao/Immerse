@@ -7,6 +7,8 @@ struct EventBlockView: View {
     let height: CGFloat
 
     @Environment(CalendarStore.self) private var store
+    @Environment(FocusEngine.self) private var focusEngine
+    @State private var isHovering = false
 
     private var isDone: Bool { task.status == .done }
     private var color: Color { isDone ? .gray : task.priority.color }
@@ -14,6 +16,31 @@ struct EventBlockView: View {
     var body: some View {
         let shape = RoundedRectangle(cornerRadius: 6, style: .continuous)
 
+        content(shape)
+            .overlay(alignment: .topTrailing) {
+                // 悬停时显示「开始专注」按钮
+                if isHovering && !isDone && !focusEngine.isFocusing(on: task.id) && height >= 22 {
+                    Button {
+                        focusEngine.requestStart(task)
+                    } label: {
+                        Image(systemName: "play.fill")
+                            .font(.system(size: 9, weight: .bold))
+                            .foregroundStyle(.white)
+                            .frame(width: 18, height: 18)
+                            .background(Circle().fill(color))
+                    }
+                    .buttonStyle(.plain)
+                    .padding(3)
+                    .help("开始专注 \(task.focusMinutes) 分钟")
+                    .transition(.opacity)
+                }
+            }
+            .onHover { hovering in
+                withAnimation(.easeOut(duration: 0.12)) { isHovering = hovering }
+            }
+    }
+
+    private func content(_ shape: RoundedRectangle) -> some View {
         HStack(spacing: 0) {
             Rectangle()
                 .fill(color)
@@ -114,9 +141,14 @@ private struct TaskContextMenu: ViewModifier {
     let task: TaskSnapshot
     @Environment(TaskStore.self) private var taskStore
     @Environment(CalendarStore.self) private var store
+    @Environment(FocusEngine.self) private var focusEngine
 
     func body(content: Content) -> some View {
         content.contextMenu {
+            if !focusEngine.isFocusing(on: task.id) && task.status != .done {
+                Button("开始专注 \(task.focusMinutes) 分钟") { focusEngine.requestStart(task) }
+                Divider()
+            }
             Button(task.status == .done ? "标记为未完成" : "标记完成") {
                 taskStore.toggleDone(task.id)
             }

@@ -1,10 +1,13 @@
 import AppKit
 import SwiftUI
 
-/// 菜单栏命令：新建、删除、撤销 / 重做、搜索
+/// 菜单栏命令：新建、删除、撤销 / 重做、搜索、专注
 struct ImmerseCommands: Commands {
-    let taskStore: TaskStore
-    let calendarStore: CalendarStore
+    let environment: AppEnvironment
+
+    private var taskStore: TaskStore { environment.taskStore }
+    private var calendarStore: CalendarStore { environment.calendarStore }
+    private var focusEngine: FocusEngine { environment.focusEngine }
 
     var body: some Commands {
         CommandGroup(replacing: .newItem) {
@@ -33,6 +36,22 @@ struct ImmerseCommands: Commands {
             Button("搜索日程") { calendarStore.wantsSearchFocus = true }
                 .keyboardShortcut("f")
         }
+
+        CommandMenu("专注") {
+            Button("开始专注选中的日程") {
+                if let task = taskStore.task(id: calendarStore.selectedTaskID) {
+                    focusEngine.requestStart(task)
+                }
+            }
+            .keyboardShortcut(.return, modifiers: .command)
+            Divider()
+            Button("暂停 / 继续") { focusEngine.togglePause() }
+                .keyboardShortcut("p", modifiers: [.command, .shift])
+            Button("延长 15 分钟") { focusEngine.extend() }
+                .keyboardShortcut("=", modifiers: [.command, .shift])
+            Button("提前完成") { focusEngine.finishEarly() }
+            Button("放弃本次专注") { focusEngine.abandon() }
+        }
     }
 
     private func newTask() {
@@ -45,7 +64,7 @@ struct ImmerseCommands: Commands {
         ))
         calendarStore.anchorDate = interval.start
         calendarStore.wantsTitleFocus = true
-        calendarStore.select(task.id)
+        calendarStore.reveal(task)
     }
 
     /// 正在编辑文字时，撤销交给文本框自己；否则撤销日程操作

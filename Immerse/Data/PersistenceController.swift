@@ -8,10 +8,22 @@ enum PersistenceController {
         ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil
     }
 
+    /// Debug 自截图模式：用内存数据库 + 示例数据，不碰真实数据
+    static var isSnapshotMode: Bool {
+        #if DEBUG
+        ProcessInfo.processInfo.environment["IMMERSE_SNAPSHOT"] != nil
+        #else
+        false
+        #endif
+    }
+
+    /// 不落盘：测试和截图都用内存数据库
+    static var isEphemeral: Bool { isRunningTests || isSnapshotMode }
+
     static func makeContainer() throws -> ModelContainer {
         let schema = Schema([TaskItem.self, FocusSession.self])
         let configuration: ModelConfiguration
-        if isRunningTests {
+        if isEphemeral {
             configuration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: true)
         } else {
             // 没开沙盒时，默认路径是 ~/Library/Application Support/default.store，

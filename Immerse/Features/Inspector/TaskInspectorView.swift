@@ -6,6 +6,7 @@ struct TaskInspectorView: View {
 
     @Environment(TaskStore.self) private var taskStore
     @Environment(CalendarStore.self) private var store
+    @Environment(FocusEngine.self) private var focusEngine
 
     @State private var draft: TaskSnapshot?
     @FocusState private var isTitleFocused: Bool
@@ -153,6 +154,25 @@ struct TaskInspectorView: View {
 
     private func actions(_ task: TaskSnapshot) -> some View {
         VStack(spacing: 8) {
+            let isActive = focusEngine.isFocusing(on: task.id)
+            Button {
+                if isActive { focusEngine.togglePause() } else { focusEngine.requestStart(task) }
+            } label: {
+                Label(isActive ? (focusEngine.isPaused ? "继续专注" : "暂停专注") : "开始专注 \(task.focusMinutes) 分钟",
+                      systemImage: isActive && !focusEngine.isPaused ? "pause.fill" : "play.fill")
+                    .frame(maxWidth: .infinity)
+            }
+            .buttonStyle(.borderedProminent)
+            .controlSize(.large)
+            .disabled(task.status == .done && !isActive)
+
+            if isActive {
+                Text(focusEngine.phase == .timeUp ? "时间到" : "剩余 \(focusEngine.remainingText)")
+                    .font(.system(size: 12))
+                    .monospacedDigit()
+                    .foregroundStyle(.secondary)
+            }
+
             HStack(spacing: 8) {
                 Button {
                     taskStore.toggleDone(task.id)
