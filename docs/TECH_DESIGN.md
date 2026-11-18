@@ -1,11 +1,11 @@
 # Immerse 技术方案
 
-> 版本：v1.0 · 日期：2026-11-18 · 状态：待评审
+> 版本：v1.1 · 日期：2026-11-18 · 状态：M1–M6 已实现（实现记录见第 14 节）
 > App 名称 `Immerse` 为暂定名，Bundle ID 暂定 `com.debugzhao.immerse`
 
 ## 0. 结论先行
 
-**用原生 SwiftUI 开发，最低支持 macOS 14，界面用毛玻璃效果（Material）代替 Liquid Glass，数据只存本地（SwiftData）。分 M1–M5 五个阶段交付。**
+**用原生 SwiftUI 开发，最低支持 macOS 14，界面用毛玻璃效果（Material）代替 Liquid Glass，数据只存本地（SwiftData）。分 M1–M6 六个阶段交付。**
 
 | 关键决策 | 选择 | 一句话理由 |
 |---|---|---|
@@ -26,8 +26,8 @@
 | 项目 | 现状 | 需要做的 |
 |---|---|---|
 | 操作系统 | macOS 14.7.6 | 不升级 |
-| Xcode | ❌ 未安装，只有命令行工具 | 安装 **Xcode 16.2**（macOS 14 上能装的最新版）。已实测：只有命令行工具时 SwiftData 的 `@Model` 宏无法编译 |
-| XcodeGen | ❌ 未安装 | Homebrew 对 macOS 14 已不提供预编译包，需要**先装好 Xcode**，再运行 `brew install xcodegen` 从源码编译 |
+| Xcode | ✅ Xcode 16.2（在 `~/Downloads/Xcode.app`） | 不需要 `sudo xcode-select`：`scripts/build.sh` 会自动通过 `DEVELOPER_DIR` 找到它。注意只有命令行工具时 SwiftData 的 `@Model` 宏无法编译 |
+| XcodeGen | ✅ 2.47.0（在 `~/.local/bin`） | Homebrew 在 macOS 14 上编译会误用命令行工具而失败，改为用 Xcode 从官方源码 `make install PREFIX=~/.local` |
 | Swift | 6.0.3（随 Xcode 16.2 提供） | 用 Swift 5 语言模式 + 完整并发检查（见 1.2） |
 
 安装 Xcode 后执行：
@@ -43,8 +43,9 @@ sudo xcode-select -s /Applications/Xcode.app
 | `MACOSX_DEPLOYMENT_TARGET` | 14.0 | |
 | `SWIFT_VERSION` | 5.0 | SwiftData 在 Swift 6 严格并发模式下还有不少警告和报错，先用 5 模式 |
 | `SWIFT_STRICT_CONCURRENCY` | complete | 提前暴露并发问题，以后切换到 Swift 6 成本低 |
+| `SWIFT_UPCOMING_FEATURE_INFER_SENDABLE_FROM_CAPTURES` | YES | SE-0418，消除 SwiftData `#Predicate` / `SortDescriptor` 的 KeyPath Sendable 误报 |
 | `ENABLE_APP_SANDBOX` | NO | 需要执行 `/usr/bin/shortcuts` |
-| `ENABLE_HARDENED_RUNTIME` | YES | 保留，以后需要公证时不用再改 |
+| `ENABLE_HARDENED_RUNTIME` | Debug: NO / Release: YES | Debug 关闭是为了让单元测试 bundle 能注入宿主 App；Release 保留，以后公证不用再改 |
 | `CODE_SIGN_IDENTITY` | `-`（Sign to Run Locally） | ad-hoc 签名，不需要开发者账号 |
 
 ---
@@ -556,7 +557,7 @@ struct GlassSurfaceModifier: ViewModifier {
 | **M3** 专注计时 | `FocusEngine`、菜单栏倒计时、通知和操作按钮、睡眠和崩溃恢复 | 1 分钟的测试任务能按时弹出通知；睡眠 2 分钟后唤醒，剩余时间正确；强制退出后重新打开能恢复 |
 | **M4** 勿扰 | `DoNotDisturbService`、引导页、设置页、勿扰状态兜底恢复 | 开始专注后系统进入勿扰，时间到了先退出勿扰再提醒；快捷指令缺失时有清楚的提示 |
 | **M5** 完善 | 日视图和月视图、`⌘K` 自然语言解析、沉浸视图、全部快捷键、动画打磨 | 风格统一；快捷键全部可用；自然语言解析的单元测试全部通过 |
-| M6（可选） | 导入或同步 Notion「主线任务日程」、专注统计 | 另行评审 |
+| **M6** 导入与统计 | 导入 Notion CSV（预览 + 去重 + 一步撤销）、专注统计窗口、日历上叠加实际专注时间段 | 导入你导出的 CSV 不丢字段；统计数字与专注记录一致 |
 
 ---
 
@@ -587,3 +588,50 @@ struct GlassSurfaceModifier: ViewModifier {
 | 勿扰使用哪种专注模式 | 系统「勿扰模式」 |
 | 导入 Notion 数据 | 放到 M6 |
 | 签名方式 | 本机 ad-hoc 签名，不公证 |
+
+---
+
+## 14. 实现记录（M1–M6）
+
+### 14.1 各阶段提交
+
+| 阶段 | 提交 | 验证方式 |
+|---|---|---|
+| M1 | `feat: add M1 week view with sample data` | 浅色 / 深色截图 |
+| M2 | `feat: add task editing, drag, inspector and undo` | 单元测试（撤销 / 重做、拖拽计算）+ 详情面板、搜索截图 |
+| M3 | `feat: add focus timer, menu bar and notifications` | 单元测试（假时钟模拟睡眠、重启、时间到）+ 专注中、时间到截图 |
+| M4 | `feat: add do-not-disturb via shortcuts and onboarding` | 单元测试 + 引导页截图；真实切换勿扰见 14.3 |
+| M5 | `feat: add command palette, month and immersive views` | 自然语言解析 22 组测试（50+ 个用例）+ 月视图、命令面板、沉浸视图截图 |
+| M6 | `feat: add notion csv import and focus stats` | CSV / 日期格式 / 统计测试 + 统计窗口截图 |
+
+当前共 75 个单元测试，全部通过；编译零警告。
+
+### 14.2 和原方案的差异
+
+| 方案原文 | 实际实现 | 原因 |
+|---|---|---|
+| 视图直接使用 `TaskItem` | 数据层之上只用值类型 `TaskSnapshot` | 视图不受托管对象生命周期影响；除数据层外的代码都能脱离 SwiftData 测试 |
+| 撤销依赖 `ModelContext` 自带的 undo | `TaskStore` 自己注册逆操作，每个操作显式分组（`groupsByEvent = false`） | 测试发现默认按事件循环分组会把「新建 + 修改」合成一步；专注引擎改状态不进撤销栈 |
+| 删除任务级联删除专注记录 | 改为 `.nullify`，专注记录冗余保存任务标题 | 删了任务统计数据不丢 |
+| 数据库默认路径 | `~/Library/Application Support/com.debugzhao.immerse/Immerse.store` | 不开沙盒时 SwiftData 默认写 `default.store`，会和其他 App 冲突 |
+| M6 同步 Notion | 导入 Notion 导出的 CSV | 直接调 Notion API 需要集成 token，第一版不处理凭据 |
+| 沉浸视图用 `NSVisualEffectView(.hudWindow)` | `ultraThickMaterial` + 优先级色径向柔光 | 文字对比度更稳 |
+
+### 14.3 已知限制
+
+| 限制 | 说明 |
+|---|---|
+| 勿扰真实切换未端到端验证 | 开发环境里 `/usr/bin/shortcuts` 一启动就被系统 SIGKILL（命令行和 App 内调用都一样），疑似设备管理策略限制。App 已做降级：检测失败会提示具体原因，计时不受影响。需要在本机终端运行 `shortcuts list` 确认 |
+| 菜单栏面板未截图 | Debug 自截图只能截 App 自己的窗口，菜单栏面板需要手动查看 |
+| 拖拽、悬停等交互未自动化测试 | 计算逻辑（`EventEditing`）有单元测试，手感需要手动体验 |
+| 截图里的毛玻璃不透出桌面 | `behindWindow` 模糊无法被窗口内截图捕获，以屏幕实际效果为准 |
+
+### 14.4 开发辅助：Debug 自截图
+
+只在 Debug 版本中可用，使用内存数据库 + 示例数据，不碰真实数据、不发通知：
+
+```bash
+IMMERSE_SNAPSHOT=/tmp/shot.png build/DerivedData/Build/Products/Debug/Immerse.app/Contents/MacOS/Immerse
+```
+
+可选环境变量：`IMMERSE_APPEARANCE=dark`、`IMMERSE_MODE=day|week|month`、`IMMERSE_SELECT=<关键字>`、`IMMERSE_SEARCH=<关键字>`、`IMMERSE_FOCUS=<关键字>[,秒数]`、`IMMERSE_IMMERSIVE=1`、`IMMERSE_PALETTE=1`、`IMMERSE_STATS=1`、`IMMERSE_ONBOARDING=1`、`IMMERSE_FILTER=urgent`。
