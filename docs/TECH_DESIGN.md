@@ -27,7 +27,7 @@
 |---|---|---|
 | 操作系统 | macOS 14.7.6 | 不升级 |
 | Xcode | ❌ 未安装，只有命令行工具 | 安装 **Xcode 16.2**（macOS 14 上能装的最新版）。已实测：只有命令行工具时 SwiftData 的 `@Model` 宏无法编译 |
-| XcodeGen | ❌ 未安装 | 运行 `brew install xcodegen` |
+| XcodeGen | ❌ 未安装 | Homebrew 对 macOS 14 已不提供预编译包，需要**先装好 Xcode**，再运行 `brew install xcodegen` 从源码编译 |
 | Swift | 6.0.3（随 Xcode 16.2 提供） | 用 Swift 5 语言模式 + 完整并发检查（见 1.2） |
 
 安装 Xcode 后执行：
@@ -249,18 +249,20 @@ final class FocusSession {
 
 ### 4.4 数据访问抽象
 
+数据层之上只使用值类型 `TaskSnapshot`，不直接持有 `@Model` 对象。这样视图不受托管对象生命周期的影响；除了模型、SwiftData 仓库和 App 入口，其余代码都不依赖 SwiftData，也可以单独测试。
+
 ```swift
 @MainActor
-protocol TaskRepository {
-    func tasks(in interval: DateInterval) throws -> [TaskItem]
-    func search(_ keyword: String) throws -> [TaskItem]
-    func insert(_ task: TaskItem) throws
-    func delete(_ task: TaskItem) throws
-    func save() throws
-    func activeSession() throws -> FocusSession?
-    var undoManager: UndoManager? { get }
+protocol TaskRepository: AnyObject {
+    func tasks(in interval: DateInterval) throws -> [TaskSnapshot]
+    func isEmpty() throws -> Bool
+    func insert(_ snapshots: [TaskSnapshot]) throws
+    // M2 增加：update / delete / search / undoManager
+    // M3 增加：activeSession 等专注记录相关接口
 }
 ```
+
+- 实现有两个：`SwiftDataTaskRepository`（正式使用）和 `InMemoryTaskRepository`（单元测试和预览使用）
 
 - 撤销：创建 `ModelContainer` 时开启 `isUndoEnabled: true`，拖拽、编辑、删除都自动注册撤销操作
 - 以后做 Notion 同步时，新增 `NotionSyncService`，用 `notionPageId` 字段做映射，不改现有协议

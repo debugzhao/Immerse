@@ -19,3 +19,6 @@ dist/
 *.app
 *.dmg
 *.zip
+
+# XcodeGen 生成的工程，以 project.yml 为准
+*.xcodeproj/
