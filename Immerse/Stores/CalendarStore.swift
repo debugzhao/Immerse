@@ -64,6 +64,8 @@ final class CalendarStore {
     var isCommandPalettePresented = false
     /// 时间网格滚动请求：每次赋新值都会触发一次滚动
     var scrollRequest = ScrollRequest(hour: 8)
+    /// 待确认的 Notion 导入
+    var pendingImport: ImportPreview?
 
     init(anchorDate: Date = .now, calendar: Calendar = .app) {
         self.anchorDate = anchorDate

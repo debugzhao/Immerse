@@ -4,6 +4,8 @@ import SwiftUI
 struct RootView: View {
     @Environment(FocusEngine.self) private var focusEngine
     @Environment(SettingsStore.self) private var settings
+    @Environment(CalendarStore.self) private var calendarStore
+    @Environment(\.openWindow) private var openWindow
     @State private var columnVisibility: NavigationSplitViewVisibility = .all
 
     var body: some View {
@@ -31,6 +33,12 @@ struct RootView: View {
             set: { if !$0 { settings.onboardingCompleted = true } }
         )) {
             OnboardingSheet()
+        }
+        .sheet(item: Bindable(calendarStore).pendingImport) { preview in
+            ImportPreviewView(preview: preview)
+        }
+        .onAppear {
+            if DebugFlags.openStats { openWindow(id: "stats") }
         }
         .alert(
             "已有进行中的专注",

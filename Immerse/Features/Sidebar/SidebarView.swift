@@ -7,6 +7,7 @@ struct SidebarView: View {
             VStack(alignment: .leading, spacing: 24) {
                 MiniMonthView()
                 TodayTaskList()
+                FocusSummaryView()
                 FilterView()
             }
             .padding(.horizontal, 14)

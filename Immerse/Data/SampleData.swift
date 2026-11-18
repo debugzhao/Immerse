@@ -21,6 +21,24 @@ enum SampleData {
         }
     }
 
+    /// 截图演示用：给本周已完成 / 进行中的定时任务补几条专注记录
+    @MainActor
+    static func seedFocusHistory(_ focus: FocusSessionRepository, tasks: TaskRepository,
+                                 now: Date = .now, calendar: Calendar = .app) {
+        guard let week = calendar.dateInterval(of: .weekOfYear, for: now),
+              let all = try? tasks.tasks(in: week) else { return }
+        for task in all where !task.isAllDay && task.start < now && task.status != .inProgress {
+            let interval = task.displayInterval(in: calendar)
+            // 实际专注比计划晚开始 5 分钟、少 10 分钟，演示「实际 vs 计划」的差别
+            let start = interval.start.addingTimeInterval(5 * 60)
+            let seconds = max(Int(interval.duration) - 15 * 60, 15 * 60)
+            let state = FocusSessionState(taskID: task.id, taskTitle: task.title, startedAt: start, plannedSeconds: seconds)
+            try? focus.save(state)
+            try? focus.finish(state, endedAt: start.addingTimeInterval(TimeInterval(seconds)),
+                              reason: task.status == .done ? .completed : .finishedEarly)
+        }
+    }
+
     static func make(around date: Date, calendar: Calendar = .app) -> [TaskSnapshot] {
         let weekStart = calendar.dateInterval(of: .weekOfYear, for: date)?.start ?? calendar.startOfDay(for: date)
 

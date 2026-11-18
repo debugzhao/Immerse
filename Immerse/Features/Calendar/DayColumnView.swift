@@ -43,6 +43,8 @@ struct DayColumnView: View {
             ZStack(alignment: .topLeading) {
                 background(width: width)
 
+                FocusStrips(dayStart: dayStart)
+
                 ForEach(segments) { segment in
                     if let placement = placements[segment.id] {
                         block(for: segment, placement: placement, columnWidth: width)
@@ -212,6 +214,31 @@ struct DayColumnView: View {
             guard interval.overlapsHalfOpen(dayInterval) else { return nil }
             return Segment(task: task, start: max(interval.start, dayStart), end: min(interval.end, dayEnd))
         }
+    }
+}
+
+/// 实际专注过的时间段：画在列最左侧的细条，和计划的日程块对照（实际 vs 计划）
+private struct FocusStrips: View {
+    let dayStart: Date
+    @Environment(FocusEngine.self) private var engine
+
+    var body: some View {
+        let dayEnd = dayStart.addingTimeInterval(24 * 3600)
+        let records = engine.records(in: DateInterval(start: dayStart, end: dayEnd))
+        ZStack(alignment: .topLeading) {
+            ForEach(records) { record in
+                let start = max(record.startedAt, dayStart)
+                let end = min(record.endedAt, dayEnd)
+                let top = CalendarMetrics.yOffset(for: start, dayStart: dayStart)
+                let height = max(CalendarMetrics.yOffset(for: end, dayStart: dayStart) - top, 3)
+                Capsule()
+                    .fill(Color.green.opacity(record.reason == .abandoned ? 0.35 : 0.8))
+                    .frame(width: 3, height: height)
+                    .offset(x: -1.5, y: top)
+                    .help("实际专注「\(record.taskTitle)」\(TimeText.range(record.startedAt, record.endedAt)) · \(DurationText.minutes(record.focusedSeconds)) · \(record.reason.title)")
+            }
+        }
+        .zIndex(2)
     }
 }
 

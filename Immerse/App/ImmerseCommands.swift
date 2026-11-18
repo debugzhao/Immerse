@@ -15,6 +15,11 @@ struct ImmerseCommands: Commands {
                 .keyboardShortcut("n")
         }
 
+        CommandGroup(replacing: .importExport) {
+            Button("导入 Notion CSV…") { importNotion() }
+                .keyboardShortcut("i", modifiers: [.command, .shift])
+        }
+
         CommandGroup(replacing: .undoRedo) {
             Button("撤销") { performUndo() }
                 .keyboardShortcut("z")
@@ -79,6 +84,14 @@ struct ImmerseCommands: Commands {
         calendarStore.anchorDate = interval.start
         calendarStore.wantsTitleFocus = true
         calendarStore.reveal(task)
+    }
+
+    private func importNotion() {
+        switch NotionImport.pickAndParse(existing: taskStore.allTasks()) {
+        case .success(let preview): calendarStore.pendingImport = preview
+        case .failure(let error): taskStore.toast = Toast(message: "导入失败：\(error.localizedDescription)")
+        case nil: break
+        }
     }
 
     /// 正在编辑文字时，撤销交给文本框自己；否则撤销日程操作

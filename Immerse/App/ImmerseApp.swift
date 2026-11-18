@@ -13,14 +13,16 @@ struct ImmerseApp: App {
             fatalError("无法打开本地数据库：\(error)")
         }
         let repository = SwiftDataTaskRepository(container: container)
+        let focusRepository = SwiftDataFocusSessionRepository(tasks: repository)
         if PersistenceController.isSnapshotMode {
             try? repository.insert(SampleData.make(around: .now))
+            SampleData.seedFocusHistory(focusRepository, tasks: repository)
         } else if !PersistenceController.isRunningTests {
             SampleData.seedIfNeeded(repository)
         }
         _environment = State(initialValue: AppEnvironment(
             repository: repository,
-            focusRepository: SwiftDataFocusSessionRepository(tasks: repository),
+            focusRepository: focusRepository,
             isEphemeral: PersistenceController.isEphemeral
         ))
     }
@@ -48,6 +50,12 @@ struct ImmerseApp: App {
                 .injecting(environment)
         }
         .menuBarExtraStyle(.window)
+
+        Window("专注统计", id: "stats") {
+            StatsView()
+                .injecting(environment)
+        }
+        .defaultSize(width: 680, height: 640)
 
         Settings {
             SettingsView()

@@ -2,6 +2,15 @@ import AppKit
 import SwiftUI
 
 enum DebugFlags {
+    /// IMMERSE_STATS=1：截图时打开专注统计窗口
+    static var openStats: Bool {
+        #if DEBUG
+        ProcessInfo.processInfo.environment["IMMERSE_STATS"] != nil
+        #else
+        false
+        #endif
+    }
+
     /// IMMERSE_ONBOARDING=1：截图时强制显示首次引导
     static var forceOnboarding: Bool {
         #if DEBUG
@@ -26,6 +35,8 @@ enum DebugFlags {
 /// 注意：透出桌面的毛玻璃（behindWindow）在截图里是纯色，真实效果以屏幕为准。
 @MainActor
 enum DebugSnapshot {
+    private static var statsRequested = false
+
     static func scheduleIfRequested(environment: AppEnvironment) {
         let env = ProcessInfo.processInfo.environment
         guard let path = env["IMMERSE_SNAPSHOT"] else { return }
@@ -60,6 +71,10 @@ enum DebugSnapshot {
             }
         }
 
+        // IMMERSE_STATS=1：截专注统计窗口
+        if env["IMMERSE_STATS"] != nil {
+            statsRequested = true
+        }
         // IMMERSE_PALETTE=<输入内容>：打开 ⌘K 命令面板（输入内容只能截到空面板，用于看样式）
         if env["IMMERSE_PALETTE"] != nil {
             environment.calendarStore.isCommandPalettePresented = true
@@ -85,9 +100,10 @@ enum DebugSnapshot {
         Task { @MainActor in
             // 等窗口布局、滚动定位、动画都完成
             try? await Task.sleep(for: .seconds(2.5))
-            guard let mainWindow = NSApp.windows.first(where: { $0.isVisible && $0.contentView != nil && $0.frame.width > 600 }) else {
-                NSApp.terminate(nil)
-                return
+            let candidates = NSApp.windows.filter { $0.isVisible && $0.contentView != nil && $0.frame.width > 600 }
+            let preferred = statsRequested ? candidates.first { $0.title == "专注统计" } : candidates.first { $0.title != "专注统计" }
+            guard let mainWindow = preferred ?? candidates.first else {
+                exit(0)
             }
             // 有弹出的 sheet 时截 sheet
             let window = mainWindow.attachedSheet ?? mainWindow

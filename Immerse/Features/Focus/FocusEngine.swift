@@ -28,6 +28,8 @@ final class FocusEngine {
     private(set) var dndWarning: String?
     /// 是否显示全屏沉浸视图
     var isImmersivePresented = false
+    /// 专注记录版本号：有专注结束时递增，统计和日历据此刷新
+    private(set) var recordsRevision = 0
 
     @ObservationIgnored private let taskStore: TaskStore
     @ObservationIgnored private let repository: FocusSessionRepository
@@ -61,6 +63,17 @@ final class FocusEngine {
     var remainingText: String { DurationText.countdown(remaining) }
 
     func isFocusing(on taskID: UUID) -> Bool { session?.taskID == taskID }
+
+    /// 与 interval 有交集的已结束专注记录
+    func records(in interval: DateInterval) -> [FocusRecord] {
+        _ = recordsRevision
+        do {
+            return try repository.records(in: interval)
+        } catch {
+            logger.error("读取专注记录失败：\(error.localizedDescription, privacy: .public)")
+            return []
+        }
+    }
 
     // MARK: - 开始
 
@@ -177,6 +190,7 @@ final class FocusEngine {
         let endedAt = timeUpAt ?? clock()
         do {
             try repository.finish(state, endedAt: endedAt, reason: reason)
+            recordsRevision += 1
         } catch {
             logger.error("保存专注记录失败：\(error.localizedDescription, privacy: .public)")
         }
