@@ -65,11 +65,7 @@ struct CalendarContainerView: View {
         case .day, .week:
             TimeGridCalendarView(days: store.visibleDays)
         case .month:
-            ContentUnavailableView(
-                "月视图开发中",
-                systemImage: "calendar",
-                description: Text("将在 M5 阶段实现，按 W 回到周视图")
-            )
+            MonthView()
         }
     }
 
@@ -104,6 +100,13 @@ struct CalendarContainerView: View {
             }
             .pickerStyle(.segmented)
             .help("切换视图（D / W / M）")
+
+            Button {
+                store.wrappedValue.isCommandPalettePresented = true
+            } label: {
+                Image(systemName: "command")
+            }
+            .help("命令面板（⌘K）")
 
             searchField(text: store.searchText)
         }

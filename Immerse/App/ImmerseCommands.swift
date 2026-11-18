@@ -35,6 +35,20 @@ struct ImmerseCommands: Commands {
         CommandGroup(replacing: .textEditing) {
             Button("搜索日程") { calendarStore.wantsSearchFocus = true }
                 .keyboardShortcut("f")
+            Button("命令面板") { calendarStore.isCommandPalettePresented.toggle() }
+                .keyboardShortcut("k")
+        }
+
+        CommandGroup(after: .toolbar) {
+            Button("回到今天") { calendarStore.goToToday() }
+            Button("日视图") { calendarStore.mode = .day }
+            Button("周视图") { calendarStore.mode = .week }
+            Button("月视图") { calendarStore.mode = .month }
+            Divider()
+            Button("进入沉浸模式") { focusEngine.isImmersivePresented = true }
+                .keyboardShortcut("f", modifiers: [.command, .control])
+                .disabled(!focusEngine.isActive)
+            Divider()
         }
 
         CommandMenu("专注") {

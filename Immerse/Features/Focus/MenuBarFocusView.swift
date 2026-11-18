@@ -31,6 +31,15 @@ struct MenuBarFocusView: View {
         VStack(alignment: .leading, spacing: 14) {
             if engine.isActive {
                 FocusControlPanel(style: .compact)
+                Button {
+                    openWindow(id: "main")
+                    NSApp.activate(ignoringOtherApps: true)
+                    engine.isImmersivePresented = true
+                } label: {
+                    Label("进入沉浸模式", systemImage: "sparkles.tv")
+                }
+                .buttonStyle(.borderless)
+                .font(.system(size: 12))
             } else {
                 todayList
             }

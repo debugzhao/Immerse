@@ -17,6 +17,12 @@ struct RootView: View {
             ToastOverlay()
         }
         .overlay {
+            CommandPaletteOverlay()
+        }
+        .overlay {
+            ImmersiveOverlay()
+        }
+        .overlay {
             FocusTimeUpOverlay()
         }
         // 首次启动：勿扰设置引导

@@ -60,6 +60,14 @@ enum DebugSnapshot {
             }
         }
 
+        // IMMERSE_PALETTE=<输入内容>：打开 ⌘K 命令面板（输入内容只能截到空面板，用于看样式）
+        if env["IMMERSE_PALETTE"] != nil {
+            environment.calendarStore.isCommandPalettePresented = true
+        }
+        // IMMERSE_IMMERSIVE=1：进入沉浸视图（需同时 IMMERSE_FOCUS）
+        if env["IMMERSE_IMMERSIVE"] != nil {
+            environment.focusEngine.isImmersivePresented = true
+        }
         // IMMERSE_CHECK_SHORTCUTS=<输出文件>：在 App 进程里跑一次 shortcuts list，验证调用链路
         if let output = env["IMMERSE_CHECK_SHORTCUTS"] {
             Task { @MainActor in
