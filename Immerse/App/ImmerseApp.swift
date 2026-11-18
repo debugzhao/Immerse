@@ -21,9 +21,7 @@ struct ImmerseApp: App {
         _environment = State(initialValue: AppEnvironment(
             repository: repository,
             focusRepository: SwiftDataFocusSessionRepository(tasks: repository),
-            dnd: NoopDoNotDisturbService(),
-            // 测试和截图时不发系统通知、不弹权限窗口
-            notificationsSilenced: PersistenceController.isEphemeral
+            isEphemeral: PersistenceController.isEphemeral
         ))
     }
 
@@ -50,6 +48,11 @@ struct ImmerseApp: App {
                 .injecting(environment)
         }
         .menuBarExtraStyle(.window)
+
+        Settings {
+            SettingsView()
+                .injecting(environment)
+        }
     }
 }
 
@@ -60,5 +63,7 @@ extension View {
             .environment(environment.taskStore)
             .environment(environment.calendarStore)
             .environment(environment.focusEngine)
+            .environment(environment.settings)
+            .environment(environment.shortcutsDND)
     }
 }

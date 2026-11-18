@@ -1,6 +1,18 @@
-#if DEBUG
 import AppKit
 import SwiftUI
+
+enum DebugFlags {
+    /// IMMERSE_ONBOARDING=1：截图时强制显示首次引导
+    static var forceOnboarding: Bool {
+        #if DEBUG
+        ProcessInfo.processInfo.environment["IMMERSE_ONBOARDING"] != nil
+        #else
+        false
+        #endif
+    }
+}
+
+#if DEBUG
 
 /// 开发用：App 自己把主窗口画成 PNG，不需要系统「屏幕录制」权限。
 ///
@@ -48,18 +60,38 @@ enum DebugSnapshot {
             }
         }
 
+        // IMMERSE_CHECK_SHORTCUTS=<输出文件>：在 App 进程里跑一次 shortcuts list，验证调用链路
+        if let output = env["IMMERSE_CHECK_SHORTCUTS"] {
+            Task { @MainActor in
+                let result: String
+                do {
+                    let names = try await ShortcutsRunner.list()
+                    result = "ok count=\(names.count)\n" + names.joined(separator: "\n")
+                } catch {
+                    result = "error \(error.localizedDescription)"
+                }
+                try? result.write(toFile: output, atomically: true, encoding: .utf8)
+            }
+        }
+
         Task { @MainActor in
             // 等窗口布局、滚动定位、动画都完成
             try? await Task.sleep(for: .seconds(2.5))
-            guard let window = NSApp.windows.first(where: { $0.isVisible && $0.contentView != nil && $0.frame.width > 600 }),
-                  let view = window.contentView?.superview ?? window.contentView,
+            guard let mainWindow = NSApp.windows.first(where: { $0.isVisible && $0.contentView != nil && $0.frame.width > 600 }) else {
+                NSApp.terminate(nil)
+                return
+            }
+            // 有弹出的 sheet 时截 sheet
+            let window = mainWindow.attachedSheet ?? mainWindow
+            guard let view = window.contentView?.superview ?? window.contentView,
                   let rep = view.bitmapImageRepForCachingDisplay(in: view.bounds) else {
                 NSApp.terminate(nil)
                 return
             }
             view.cacheDisplay(in: view.bounds, to: rep)
             try? rep.representation(using: .png, properties: [:])?.write(to: URL(fileURLWithPath: path))
-            NSApp.terminate(nil)
+            // 不用 NSApp.terminate：有 sheet 弹出时退出会被推迟
+            exit(0)
         }
     }
 }

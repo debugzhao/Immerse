@@ -3,6 +3,7 @@ import SwiftUI
 /// 主窗口：左侧栏 + 日历，底部浮着轻提示，时间到时浮出提醒面板
 struct RootView: View {
     @Environment(FocusEngine.self) private var focusEngine
+    @Environment(SettingsStore.self) private var settings
     @State private var columnVisibility: NavigationSplitViewVisibility = .all
 
     var body: some View {
@@ -17,6 +18,13 @@ struct RootView: View {
         }
         .overlay {
             FocusTimeUpOverlay()
+        }
+        // 首次启动：勿扰设置引导
+        .sheet(isPresented: Binding(
+            get: { (!settings.onboardingCompleted && !PersistenceController.isEphemeral) || DebugFlags.forceOnboarding },
+            set: { if !$0 { settings.onboardingCompleted = true } }
+        )) {
+            OnboardingSheet()
         }
         .alert(
             "已有进行中的专注",
