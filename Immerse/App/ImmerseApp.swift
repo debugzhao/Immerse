@@ -37,7 +37,12 @@ struct ImmerseApp: App {
                 .injecting(environment)
                 .frame(minWidth: 960, minHeight: 600)
                 #if DEBUG
-                .onAppear { DebugSnapshot.scheduleIfRequested(environment: environment) }
+                .onAppear {
+                    DebugSnapshot.scheduleIfRequested(environment: environment)
+                    #if DEBUG
+                    SwitchProfiler.runIfRequested(environment: environment)
+                    #endif
+                }
                 #endif
         }
         .defaultSize(width: 1280, height: 820)

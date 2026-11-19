@@ -7,6 +7,8 @@ struct CalendarContainerView: View {
     @Environment(FocusEngine.self) private var focusEngine
     @FocusState private var isCalendarFocused: Bool
     @FocusState private var isSearchFocused: Bool
+    /// Opacity of the time grid during a day ↔ week switch
+    @State private var gridFade: Double = 1
 
     var body: some View {
         @Bindable var store = store
@@ -66,29 +68,32 @@ struct CalendarContainerView: View {
             }
     }
 
-    /// Switching day / week / month: crossfade with a slight zoom. Going to a finer view (month → week → day)
-    /// zooms in from slightly smaller; going to a coarser one settles from slightly larger.
+    /// Day / week / month switching.
+    ///
+    /// Both calendars stay alive and only their opacity changes. Rebuilding the view on every switch (`.id(mode)`) recreated
+    /// the scroll view and re-laid-out the whole grid (~100 ms main-thread stall: the old view lingered, then jumped), and
+    /// animating scale / layout made AppKit re-lay-out every platform subview on each frame. Opacity is composited on the
+    /// GPU, so only opacity is animated:
+    /// - grid ↔ month crossfade
+    /// - week ↔ day swaps the columns instantly (same grid, scroll position kept) under a short fade-in
     private var modeTransitionContainer: some View {
-        let zoomingIn = store.mode.zoomLevel < store.previousMode.zoomLevel
+        let showsGrid = store.mode != .month
         return ZStack {
-            content
-                .id(store.mode)
-                .transition(.asymmetric(
-                    insertion: .opacity.combined(with: .scale(scale: zoomingIn ? 0.96 : 1.04)),
-                    removal: .opacity
-                ))
+            TimeGridCalendarView(days: store.gridDays)
+                .animation(.easeOut(duration: 0.2)) { $0.opacity(showsGrid ? gridFade : 0) }
+                .allowsHitTesting(showsGrid)
+                .accessibilityHidden(!showsGrid)
+            MonthView()
+                .animation(.easeOut(duration: 0.2)) { $0.opacity(showsGrid ? 0 : 1) }
+                .allowsHitTesting(!showsGrid)
+                .accessibilityHidden(showsGrid)
         }
         .clipped()
-        .animation(.easeOut(duration: 0.28), value: store.mode)
-    }
-
-    @ViewBuilder
-    private var content: some View {
-        switch store.mode {
-        case .day, .week:
-            TimeGridCalendarView(days: store.visibleDays)
-        case .month:
-            MonthView()
+        .onChange(of: store.mode) { old, new in
+            // Day ↔ week: dip and fade back in so the column change doesn't just snap
+            guard old != .month, new != .month else { return }
+            gridFade = 0.35
+            withAnimation(.easeOut(duration: 0.2)) { gridFade = 1 }
         }
     }
 

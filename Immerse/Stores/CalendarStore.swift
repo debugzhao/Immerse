@@ -115,6 +115,19 @@ final class CalendarStore {
         days(in: visibleInterval)
     }
 
+    /// Days for the time grid. In month mode the grid is hidden but kept alive, so it shows the anchor's week
+    /// rather than the whole month (30+ hidden columns made every switch stall for seconds)
+    var gridDays: [Date] {
+        switch mode {
+        case .day:
+            return [calendar.startOfDay(for: anchorDate)]
+        case .week, .month:
+            let week = calendar.dateInterval(of: .weekOfYear, for: anchorDate)
+                ?? DateInterval(start: calendar.startOfDay(for: anchorDate), duration: 7 * 86400)
+            return days(in: week)
+        }
+    }
+
     func days(in interval: DateInterval) -> [Date] {
         var days: [Date] = []
         var cursor = calendar.startOfDay(for: interval.start)

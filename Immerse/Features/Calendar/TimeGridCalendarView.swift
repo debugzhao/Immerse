@@ -6,6 +6,10 @@ struct TimeGridCalendarView: View {
 
     @Environment(TaskStore.self) private var taskStore
     @Environment(CalendarStore.self) private var calendarStore
+    @Environment(FocusEngine.self) private var focusEngine
+    /// Hour shown at the top on the very first frame. Fixed when the grid is created, so the grid opens already in place
+    /// instead of rendering at 00:00 and jumping (programmatic scrolling after appear caused a visible jump on every switch)
+    @State private var initialHour: Int?
     /// Start remembering the scroll position only after the initial scroll, otherwise the first layout records 00:00
     @State private var tracksScroll = false
     /// Scroll bars stay hidden while the grid appears: a freshly created NSScrollView plus the initial
@@ -18,18 +22,21 @@ struct TimeGridCalendarView: View {
         let tasks = taskStore.tasks(in: visibleInterval).filter(calendarStore.passesFilter)
         let allDay = tasks.filter(\.isAllDay)
         let timed = tasks.filter { !$0.isAllDay }
+        // One query for the whole visible range; each column filters its own day (was one query per column)
+        let records = focusEngine.records(in: visibleInterval)
 
         VStack(spacing: 0) {
             DayHeaderRow(days: days)
             AllDayRowView(days: days, tasks: allDay)
             Divider()
+            GeometryReader { viewport in
             ScrollViewReader { proxy in
                 ScrollView(.vertical) {
                     HStack(alignment: .top, spacing: 0) {
                         TimeGutterView(showsNow: days.contains(where: calendarStore.isToday))
                             .frame(width: CalendarMetrics.gutterWidth)
                         ForEach(days, id: \.self) { day in
-                            DayColumnView(day: day, tasks: timed)
+                            DayColumnView(day: day, tasks: timed, records: records)
                         }
                     }
                     .frame(height: CalendarMetrics.gridHeight)
@@ -47,6 +54,7 @@ struct TimeGridCalendarView: View {
                         }
                     }
                 }
+                .defaultScrollAnchor(tracksScroll ? nil : initialAnchor(viewportHeight: viewport.size.height))
                 .scrollIndicators(showsScrollIndicators ? .automatic : .hidden)
                 .coordinateSpace(name: "timeGrid")
                 .onPreferenceChange(GridScrollOffsetKey.self) { [calendarStore, tracksScroll] minY in
@@ -55,14 +63,12 @@ struct TimeGridCalendarView: View {
                     // Preference callbacks are delivered on the main thread
                     MainActor.assumeIsolated { calendarStore.lastScrollHour = hour }
                 }
-                // On first appearance other state (selection, search) may change at the same time and interrupt a synchronous scroll, so wait one frame
                 .task {
-                    try? await Task.sleep(for: .milliseconds(60))
-                    let hour = calendarStore.lastScrollHour ?? calendarStore.scrollRequest.hour
-                    proxy.scrollTo(CalendarMetrics.scrollAnchorID(hour), anchor: .top)
+                    // The first frame is already positioned by defaultScrollAnchor; from now on follow the user's scrolling
+                    try? await Task.sleep(for: .milliseconds(50))
                     tracksScroll = true
-                    // Bring the scroll bars back once the switch animation and the initial scroll have settled
-                    try? await Task.sleep(for: .milliseconds(600))
+                    // Bring the scroll bars back once the switch animation has settled
+                    try? await Task.sleep(for: .milliseconds(250))
                     showsScrollIndicators = true
                 }
                 .onChange(of: calendarStore.scrollRequest) { _, request in
@@ -71,8 +77,24 @@ struct TimeGridCalendarView: View {
                     }
                 }
             }
+            }
         }
         .background(Color(nsColor: .textBackgroundColor))
+        .onAppear {
+            if initialHour == nil { initialHour = calendarStore.lastScrollHour ?? calendarStore.scrollRequest.hour }
+        }
+    }
+
+    /// Unit-point anchor that puts `hour` at the top of the viewport on the first frame.
+    /// defaultScrollAnchor aligns the anchor point of the content with the same point of the viewport, so for a
+    /// target offset `o`: y = o / (contentHeight − viewportHeight)
+    private func initialAnchor(viewportHeight: CGFloat) -> UnitPoint {
+        let hour = initialHour ?? calendarStore.lastScrollHour ?? calendarStore.scrollRequest.hour
+        let contentHeight = CalendarMetrics.gridHeight + 20          // grid + vertical padding
+        // Same position the scroll anchors use: 12 pt above the hour line, below the 10 pt top padding
+        let offset = max(10 + CGFloat(hour) * CalendarMetrics.hourHeight - 12, 0)
+        let scrollable = max(contentHeight - viewportHeight, 1)
+        return UnitPoint(x: 0, y: min(offset / scrollable, 1))
     }
 
     private var visibleInterval: DateInterval {

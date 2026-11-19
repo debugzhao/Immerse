@@ -5,6 +5,8 @@ import SwiftUI
 struct DayColumnView: View {
     let day: Date
     let tasks: [TaskSnapshot]
+    /// Focus records for the whole visible range (queried once by the grid)
+    var records: [FocusRecord] = []
 
     @Environment(CalendarStore.self) private var store
     @Environment(TaskStore.self) private var taskStore
@@ -43,7 +45,7 @@ struct DayColumnView: View {
             ZStack(alignment: .topLeading) {
                 background(width: width)
 
-                FocusStrips(dayStart: dayStart)
+                FocusStrips(dayStart: dayStart, records: records)
 
                 ForEach(segments) { segment in
                     if let placement = placements[segment.id] {
@@ -212,11 +214,11 @@ struct DayColumnView: View {
 /// Time actually spent focusing: a thin bar on the column's left edge, to compare against the planned event block (actual vs. planned)
 private struct FocusStrips: View {
     let dayStart: Date
-    @Environment(FocusEngine.self) private var engine
+    let records: [FocusRecord]
 
     var body: some View {
         let dayEnd = dayStart.addingTimeInterval(24 * 3600)
-        let records = engine.records(in: DateInterval(start: dayStart, end: dayEnd))
+        let records = self.records.filter { $0.endedAt > dayStart && $0.startedAt < dayEnd }
         ZStack(alignment: .topLeading) {
             ForEach(records) { record in
                 let start = max(record.startedAt, dayStart)

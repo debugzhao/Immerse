@@ -64,7 +64,9 @@ struct MonthView: View {
     /// Fixed 42 days (6 weeks), starting from the Monday of the week containing the 1st
     private var gridDays: [Date] {
         let calendar = store.calendar
-        let monthStart = store.visibleInterval.start
+        // The month containing the anchor date, independent of the current mode: the month view stays alive while
+        // hidden, and depending on the mode would re-lay-out all 42 cells on every day / week switch
+        let monthStart = calendar.dateInterval(of: .month, for: store.anchorDate)?.start ?? calendar.startOfDay(for: store.anchorDate)
         let leading = (calendar.component(.weekday, from: monthStart) - calendar.firstWeekday + 7) % 7
         let gridStart = calendar.date(byAdding: .day, value: -leading, to: monthStart) ?? monthStart
         return (0..<42).compactMap { calendar.date(byAdding: .day, value: $0, to: gridStart) }
