@@ -27,8 +27,8 @@ targets:
       path: Immerse/Resources/Info.plist
       properties:
         CFBundleDisplayName: Immerse
-        CFBundleShortVersionString: "0.1.0"
-        CFBundleVersion: "1"
+        CFBundleShortVersionString: "0.1.1"
+        CFBundleVersion: "2"
         CFBundleDevelopmentRegion: zh-Hans
         LSApplicationCategoryType: public.app-category.productivity
         LSMinimumSystemVersion: "$(MACOSX_DEPLOYMENT_TARGET)"
