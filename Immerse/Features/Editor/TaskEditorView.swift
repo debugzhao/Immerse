@@ -1,7 +1,7 @@
 import SwiftUI
 
 /// Notion 风格的日程弹窗：居中卡片 + 大标题 + 属性列表 + 备注正文。新建和编辑共用一套表单。
-/// - 新建：`store.draft` 不为空时出现；⌘↩ 或在标题里回车创建，Esc 取消，点外面有标题就创建
+/// - 新建：`store.draft` 不为空时出现；⌘↩ 或在标题里回车创建，Esc 或点外面关闭（不创建，内容保留到下次）
 /// - 编辑：`store.editingTaskID` 不为空时出现；改动立即保存（可撤销），Esc 或点外面关闭
 struct TaskEditorOverlay: View {
     @Environment(CalendarStore.self) private var store
@@ -143,9 +143,9 @@ private struct TaskCreateCard: View {
         isTitleFocused = true
     }
 
-    /// 点弹窗外面：写了标题就保留（和 Notion 一样），否则当作取消
+    /// 点弹窗外面：只关闭不创建，填写的内容留到下次（onDisappear 里保存）
     private func dismiss() {
-        if task.title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { cancel() } else { create() }
+        cancel()
     }
 }
 
