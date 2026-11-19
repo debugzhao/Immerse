@@ -8,7 +8,6 @@ struct EventBlockView: View {
 
     @Environment(CalendarStore.self) private var store
     @Environment(FocusEngine.self) private var focusEngine
-    @State private var isHovering = false
 
     private var isDone: Bool { task.status == .done }
     private var color: Color { isDone ? .gray : task.priority.color }
@@ -18,16 +17,15 @@ struct EventBlockView: View {
 
         content(shape)
             .overlay(alignment: .topTrailing) {
-                // 悬停时显示「开始专注」按钮
-                if isHovering && !isDone && !focusEngine.isFocusing(on: task.id) && height >= 22 {
+                // 悬停时显示「开始专注」快捷按钮：宽的块显示「▶ 专注」，窄的只显示图标
+                if store.hoveredTaskID == task.id && !isDone && !focusEngine.isFocusing(on: task.id) && height >= 22 {
                     Button {
                         focusEngine.requestStart(task)
                     } label: {
-                        Image(systemName: "play.fill")
-                            .font(.system(size: 9, weight: .bold))
-                            .foregroundStyle(.white)
-                            .frame(width: 18, height: 18)
-                            .background(Circle().fill(color))
+                        ViewThatFits(in: .horizontal) {
+                            focusButtonLabel(showsText: true)
+                            focusButtonLabel(showsText: false)
+                        }
                     }
                     .buttonStyle(.plain)
                     .padding(3)
@@ -36,8 +34,30 @@ struct EventBlockView: View {
                 }
             }
             .onHover { hovering in
-                withAnimation(.easeOut(duration: 0.12)) { isHovering = hovering }
+                withAnimation(.easeOut(duration: 0.12)) {
+                    if hovering {
+                        store.hoveredTaskID = task.id
+                    } else if store.hoveredTaskID == task.id {
+                        store.hoveredTaskID = nil
+                    }
+                }
             }
+    }
+
+    private func focusButtonLabel(showsText: Bool) -> some View {
+        HStack(spacing: 3) {
+            Image(systemName: "play.fill")
+                .font(.system(size: 8, weight: .bold))
+            if showsText {
+                Text("专注")
+                    .font(.system(size: 11, weight: .semibold))
+                    .fixedSize()
+            }
+        }
+        .foregroundStyle(.white)
+        .padding(.horizontal, showsText ? 7 : 0)
+        .frame(width: showsText ? nil : 18, height: 18)
+        .background(Capsule().fill(color))
     }
 
     private func content(_ shape: RoundedRectangle) -> some View {

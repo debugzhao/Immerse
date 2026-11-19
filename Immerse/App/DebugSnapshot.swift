@@ -85,6 +85,10 @@ enum DebugSnapshot {
             let interval = environment.calendarStore.defaultNewEventInterval()
             environment.calendarStore.draft = DraftEvent(start: interval.start, end: interval.end, usesDefaultTime: true)
         }
+        // IMMERSE_HOVER=<标题关键字>：模拟鼠标悬停在日程上
+        if let keyword = env["IMMERSE_HOVER"], let task = environment.taskStore.search(keyword).first {
+            environment.calendarStore.hoveredTaskID = task.id
+        }
         if let keyword = env["IMMERSE_SEARCH"] {
             environment.calendarStore.searchText = keyword
         }

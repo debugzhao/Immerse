@@ -55,13 +55,15 @@ final class CalendarStore {
     var searchText = ""
 
     /// 拖拽创建中的草稿
-    var draft: DraftEvent?
+    var draft: DraftEvent? { didSet { if draft != nil { hoveredTaskID = nil } } }
     /// 正在拖动的任务，用来把所在列提到最上层，避免拖到相邻列时被盖住
-    var draggingTaskID: UUID?
+    var draggingTaskID: UUID? { didSet { if draggingTaskID != nil { hoveredTaskID = nil } } }
+    /// 鼠标悬停的日程（显示「专注」快捷按钮）。全局只有一个，避免移出事件丢失时多个块同时显示
+    var hoveredTaskID: UUID?
     /// 新建弹窗没保存就关掉时留下的内容，下次打开新建弹窗时恢复
     var unsavedDraft: TaskSnapshot?
     /// 日程弹窗正在编辑的任务
-    var editingTaskID: UUID?
+    var editingTaskID: UUID? { didSet { if editingTaskID != nil { hoveredTaskID = nil } } }
     /// 新建弹窗打开时，菜单里的 ⌘↩ 改为「创建」
     @ObservationIgnored var submitDraft: (() -> Void)?
     /// 请求搜索框获得焦点（⌘F）
