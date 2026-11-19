@@ -26,7 +26,9 @@ targets:
     info:
       path: Immerse/Resources/Info.plist
       properties:
+        # The .app file name and Info.plist name stay "Immerse"; the localized name 「沉浸日程」 comes from *.lproj/InfoPlist.strings
         CFBundleDisplayName: Immerse
+        LSHasLocalizedDisplayName: true
         CFBundleShortVersionString: "0.1.2"
         CFBundleVersion: "3"
         CFBundleDevelopmentRegion: zh-Hans

@@ -30,7 +30,7 @@ struct DoNotDisturbSetupView: View {
                 .foregroundStyle(.indigo)
             Text("专注时自动开启勿扰")
                 .font(.system(size: 22, weight: .semibold))
-            Text("开始专注后，Immerse 会帮你打开系统的「勿扰模式」，时间到了再自动关闭。macOS 不允许 App 直接切换勿扰，所以需要你在「快捷指令」里建两个快捷指令，只需要做一次。")
+            Text("开始专注后，「沉浸日程」会帮你打开系统的「勿扰模式」，时间到了再自动关闭。macOS 不允许 App 直接切换勿扰，所以需要你在「快捷指令」里建两个快捷指令，只需要做一次。")
                 .font(.system(size: 13))
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
@@ -48,7 +48,7 @@ struct DoNotDisturbSetupView: View {
             step(3, "再建一个，操作设为「关闭」「勿扰模式」，命名为：") {
                 nameField(text: Bindable(settings).dndOffShortcut)
             }
-            step(4, "建议在「系统设置 → 专注模式 → 勿扰模式 → 允许的 App」里加入 Immerse，这样即使勿扰没关掉，时间到的提醒也能送达。") {
+            step(4, "建议在「系统设置 → 专注模式 → 勿扰模式 → 允许的 App」里加入「沉浸日程」，这样即使勿扰没关掉，时间到的提醒也能送达。") {
                 Button("打开专注模式设置") { dnd.openFocusSettings() }
             }
         }

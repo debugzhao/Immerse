@@ -45,7 +45,7 @@ struct MenuBarFocusView: View {
             }
             Divider()
             HStack {
-                Button("打开 Immerse") {
+                Button("打开「沉浸日程」") {
                     openWindow(id: "main")
                     NSApp.activate(ignoringOtherApps: true)
                 }

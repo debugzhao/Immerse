@@ -76,7 +76,7 @@ private struct ReminderSettingsTab: View {
             } header: {
                 Text("专注进度")
             } footer: {
-                footnote("专注时开着勿扰的话，需要把 Immerse 加入勿扰的「允许的 App」，提醒才会弹出。") {
+                footnote("专注时开着勿扰的话，需要把「沉浸日程」加入勿扰的「允许的 App」，提醒才会弹出。") {
                     Button("打开专注模式设置") { dnd.openFocusSettings() }
                         .buttonStyle(.link)
                 }
@@ -206,7 +206,7 @@ private struct AboutTab: View {
             Image(systemName: "calendar.badge.clock")
                 .font(.system(size: 48))
                 .foregroundStyle(Color.accentColor)
-            Text("Immerse").font(.system(size: 20, weight: .semibold))
+            Text("沉浸日程").font(.system(size: 20, weight: .semibold))
             Text("用最轻的方式安排日程，用最强的方式进入专注。")
                 .foregroundStyle(.secondary)
             Text(verbatim: "版本 \(Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "-")")

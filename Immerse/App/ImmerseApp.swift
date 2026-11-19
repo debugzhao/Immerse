@@ -28,7 +28,7 @@ struct ImmerseApp: App {
     }
 
     var body: some Scene {
-        WindowGroup("Immerse", id: "main") {
+        WindowGroup("沉浸日程", id: "main") {
             RootView()
                 .injecting(environment)
                 .frame(minWidth: 960, minHeight: 600)
