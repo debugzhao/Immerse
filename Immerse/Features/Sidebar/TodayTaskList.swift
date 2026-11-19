@@ -25,6 +25,7 @@ struct TodayTaskList: View {
                                 store.anchorDate = .now
                                 store.select(task.id)
                             }
+                            .simultaneousGesture(TapGesture(count: 2).onEnded { store.openEditor(task.id) })
                             .taskContextMenu(task)
                     }
                 }

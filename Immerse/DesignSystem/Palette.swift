@@ -12,6 +12,17 @@ extension Priority {
     }
 }
 
+extension TaskStatus {
+    /// 状态标签的颜色：未开始灰、进行中蓝、已完成绿
+    var color: Color {
+        switch self {
+        case .todo: .gray
+        case .inProgress: .blue
+        case .done: .green
+        }
+    }
+}
+
 enum Palette {
     /// 日程块填充的不透明度
     static let eventFillOpacity: Double = 0.18

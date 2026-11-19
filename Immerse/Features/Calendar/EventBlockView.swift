@@ -80,6 +80,8 @@ struct EventBlockView: View {
         .modifier(BreathingGlow(isActive: task.status == .inProgress, color: color))
         .contentShape(shape)
         .onTapGesture { store.select(task.id) }
+        // 双击打开弹窗（单击立即选中，不等双击判定）
+        .simultaneousGesture(TapGesture(count: 2).onEnded { store.openEditor(task.id) })
         .taskContextMenu(task)
         .help(tooltip)
         .animation(Motion.snappy, value: isSelected)
@@ -145,6 +147,8 @@ private struct TaskContextMenu: ViewModifier {
 
     func body(content: Content) -> some View {
         content.contextMenu {
+            Button("打开") { store.openEditor(task.id) }
+            Divider()
             if !focusEngine.isFocusing(on: task.id) && task.status != .done {
                 Button("开始专注 \(task.focusMinutes) 分钟") { focusEngine.requestStart(task) }
                 Divider()

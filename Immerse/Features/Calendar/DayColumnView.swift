@@ -188,19 +188,8 @@ struct DayColumnView: View {
         let top = CalendarMetrics.yOffset(for: draft.start, dayStart: dayStart)
         let height = max(CalendarMetrics.yOffset(for: draft.end, dayStart: dayStart) - top,
                          CalendarMetrics.minimumEventHeight) - 2
-        let isEditing = creating == nil && store.draft != nil
-
         return DraftBlockView(draft: draft)
             .frame(width: width - 4, height: height)
-            .popover(
-                isPresented: Binding(
-                    get: { isEditing },
-                    set: { if !$0 { store.draft = nil } }
-                ),
-                arrowEdge: .trailing
-            ) {
-                QuickCreateView()
-            }
             .offset(x: 2, y: top + 1)
     }
 

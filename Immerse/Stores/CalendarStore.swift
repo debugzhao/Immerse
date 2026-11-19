@@ -56,8 +56,10 @@ final class CalendarStore {
     var draft: DraftEvent?
     /// 正在拖动的任务，用来把所在列提到最上层，避免拖到相邻列时被盖住
     var draggingTaskID: UUID?
-    /// 请求详情面板的标题输入框获得焦点（新建日程时）
-    var wantsTitleFocus = false
+    /// 日程弹窗正在编辑的任务
+    var editingTaskID: UUID?
+    /// 新建弹窗打开时，菜单里的 ⌘↩ 改为「创建」
+    @ObservationIgnored var submitDraft: (() -> Void)?
     /// 请求搜索框获得焦点（⌘F）
     var wantsSearchFocus = false
     /// 命令面板是否打开
@@ -139,6 +141,18 @@ final class CalendarStore {
     func select(_ id: UUID?) {
         selectedTaskID = id
         if id != nil { draft = nil }
+        if id != editingTaskID { editingTaskID = nil }
+    }
+
+    /// 新建或编辑弹窗是否打开
+    var isEditorPresented: Bool {
+        draft != nil || editingTaskID != nil
+    }
+
+    /// 打开日程弹窗编辑
+    func openEditor(_ id: UUID) {
+        select(id)
+        editingTaskID = id
     }
 
     /// 跳到某个任务所在的日期并选中它

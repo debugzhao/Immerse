@@ -57,7 +57,7 @@ sudo xcode-select -s /Applications/Xcode.app
 ```
 ┌──────────────────────────────────────────────────────────────┐
 │ 视图层 Features                                              │
-│  Calendar · Sidebar · Inspector · CommandPalette · Focus UI  │
+│  Calendar · Sidebar · Editor · CommandPalette · Focus UI  │
 ├──────────────────────────────────────────────────────────────┤
 │ 状态层 Stores（@Observable，@MainActor）                       │
 │  CalendarStore · TaskStore · FocusEngine · SettingsStore     │
@@ -94,7 +94,7 @@ final class AppEnvironment {
 
 | 场景 | SwiftUI API | 用途 |
 |---|---|---|
-| 主窗口 | `WindowGroup` + `NavigationSplitView` | 侧栏 + 日历 + 右侧详情面板（`.inspector`，macOS 14 起可用） |
+| 主窗口 | `WindowGroup` + `NavigationSplitView` | 侧栏 + 日历；日程详情在居中的 Notion 风格弹窗里编辑（`TaskEditorOverlay`） |
 | 菜单栏 | `MenuBarExtra(style: .window)` | 显示专注倒计时和控制按钮；没有专注时显示今日任务 |
 | 沉浸视图 | 单独的 `Window` 场景，进入后全屏 | 专注时的全屏视图 |
 | 设置 | `Settings` 场景 | 勿扰开关、快捷指令名称、默认时长等 |
@@ -140,8 +140,8 @@ schedule-management/
 │   │   │   ├── MiniMonthView.swift
 │   │   │   ├── TodayTaskList.swift
 │   │   │   └── FilterView.swift
-│   │   ├── Inspector/
-│   │   │   └── TaskInspectorView.swift
+│   │   ├── Editor/
+│   │   │   └── TaskEditorView.swift
 │   │   ├── CommandPalette/
 │   │   │   ├── CommandPaletteView.swift
 │   │   │   └── NaturalLanguageParser.swift
@@ -299,10 +299,11 @@ protocol TaskRepository: AnyObject {
 
 | 操作 | 实现 |
 |---|---|
-| 拖拽框选创建 | 在网格空白处用 `DragGesture` 记录起止 y 坐标 → 换算成时间并吸附到 15 分钟 → 显示虚线预览块 → 松手后弹出快速创建浮层（标题输入框获得焦点） |
+| 拖拽框选创建 | 在网格空白处用 `DragGesture` 记录起止 y 坐标 → 换算成时间并吸附到 15 分钟 → 显示虚线预览块 → 松手后弹出居中的新建弹窗（标题输入框获得焦点） |
 | 移动 | 在日程块主体上拖拽；可以跨天（按 x 坐标换算日期） |
 | 调整时长 | 日程块上下边缘各留 6pt 热区，鼠标悬停时光标变成 `resizeUpDown` |
-| 点击 | 选中日程并打开右侧详情面板 |
+| 点击 | 选中日程（高亮，⌫ / Space 作用于它） |
+| 双击 / `↩` / 右键「打开」 | 打开日程弹窗编辑，改动立即保存 |
 | 悬停 | 显示「▶ 开始专注」小按钮 |
 | 右键 | 菜单：开始专注 / 标记完成 / 修改优先级 / 删除 |
 | 当前时间线 | 用 `TimelineView(.everyMinute)` 驱动红线位置 |
@@ -514,7 +515,7 @@ struct GlassSurfaceModifier: ViewModifier {
 | 窗口背景 | 透出桌面的毛玻璃 | `NSVisualEffectView`，`material = .underWindowBackground`，`blendingMode = .behindWindow` |
 | 侧栏 | `.sidebar` | `NavigationSplitView` 自带 |
 | 顶栏 | `.bar` | `.toolbarBackground` |
-| 详情面板、命令面板、快速创建浮层 | `.ultraThinMaterial` / `.regularMaterial` | `glassSurface(.panel / .overlay)` |
+| 日程弹窗、命令面板 | `.ultraThinMaterial` / `.regularMaterial` | `glassSurface(.panel / .overlay)` |
 | 沉浸视图 | `.hudWindow` + 当前任务优先级颜色的径向渐变 | `NSVisualEffectView` |
 | 日历网格 | 不透明，保证文字清晰 | — |
 
@@ -635,3 +636,16 @@ IMMERSE_SNAPSHOT=/tmp/shot.png build/DerivedData/Build/Products/Debug/Immerse.ap
 ```
 
 可选环境变量：`IMMERSE_APPEARANCE=dark`、`IMMERSE_MODE=day|week|month`、`IMMERSE_SELECT=<关键字>`、`IMMERSE_SEARCH=<关键字>`、`IMMERSE_FOCUS=<关键字>[,秒数]`、`IMMERSE_IMMERSIVE=1`、`IMMERSE_PALETTE=1`、`IMMERSE_STATS=1`、`IMMERSE_ONBOARDING=1`、`IMMERSE_FILTER=urgent`。
+
+### 14.x 迭代：Notion 风格日程弹窗
+
+原来的新建浮层（280pt 宽的 popover）太小，右侧详情面板也和新建不一致，统一改成居中弹窗：
+
+| 项 | 说明 |
+|---|---|
+| 外观 | 640pt 宽、最高 560pt 的毛玻璃卡片 + 半透明遮罩；28pt 大标题 + 属性列表（日期 / 优先级 / 状态 / 地点 / 专注时长）+ 备注正文 |
+| 新建 | 框选、双击空白、`⌘N` 打开；`↩` / `⌘↩` 创建，Esc 取消，点遮罩时有标题就创建；改时间时日历上的虚线草稿块同步移动 |
+| 编辑 | 双击日程、`↩`、右键「打开」；改动立即保存（文字连续输入合并成一步撤销）；顶栏有「开始专注」和「⋯」（完成 / 删除） |
+| 交互约束 | 弹窗打开时日历的单键快捷键（Space、⌫、D/W/M…）全部让路；`⌘⌫` 在文本框里改为删除到行首 |
+| 截图 | `IMMERSE_EDIT=<关键字>`、`IMMERSE_CREATE=1` |
+

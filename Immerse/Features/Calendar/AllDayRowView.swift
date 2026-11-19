@@ -86,12 +86,6 @@ struct AllDayRowView: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
             .background(Color.accentColor.opacity(0.14), in: shape)
             .overlay { shape.strokeBorder(Color.accentColor, style: StrokeStyle(lineWidth: 1.2, dash: [4, 3])) }
-            .popover(
-                isPresented: Binding(get: { store.draft?.isAllDay == true }, set: { if !$0 { store.draft = nil } }),
-                arrowEdge: .bottom
-            ) {
-                QuickCreateView()
-            }
     }
 
     private func moveGesture(_ task: TaskSnapshot, columnWidth: CGFloat) -> some Gesture {
@@ -151,6 +145,7 @@ private struct AllDayBarView: View {
             .modifier(BreathingGlow(isActive: task.status == .inProgress, color: color))
             .contentShape(shape)
             .onTapGesture { store.select(task.id) }
+            .simultaneousGesture(TapGesture(count: 2).onEnded { store.openEditor(task.id) })
             .taskContextMenu(task)
             .help("\(task.displayTitle)\n全天 · \(task.priority.title) · \(task.status.title)")
     }

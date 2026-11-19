@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// 日历主区域：顶栏 + 当前视图 + 右侧详情面板 + 键盘快捷键
+/// 日历主区域：顶栏 + 当前视图 + 键盘快捷键（日程详情在居中弹窗里编辑）
 struct CalendarContainerView: View {
     @Environment(CalendarStore.self) private var store
     @Environment(TaskStore.self) private var taskStore
@@ -21,21 +21,16 @@ struct CalendarContainerView: View {
             }
             .animation(Motion.snappy, value: store.searchText.isEmpty)
             .toolbar { toolbarContent(store: $store) }
-            .inspector(isPresented: inspectorBinding) {
-                Group {
-                    if let id = store.selectedTaskID {
-                        TaskInspectorView(taskID: id)
-                    }
-                }
-                .inspectorColumnWidth(min: 280, ideal: 320, max: 420)
-            }
             .focusable()
             .focusEffectDisabled()
             .focused($isCalendarFocused)
             .onAppear { isCalendarFocused = true }
-            // 选中日程后把键盘焦点拉回日历，保证 ⌫、Space 等单键快捷键可用（新建时除外，标题框要焦点）
+            // 选中日程、关掉弹窗后把键盘焦点拉回日历，保证 ⌫、Space 等单键快捷键可用
             .onChange(of: store.selectedTaskID) { _, _ in
-                if !store.wantsTitleFocus { isCalendarFocused = true }
+                if !store.isEditorPresented { isCalendarFocused = true }
+            }
+            .onChange(of: store.isEditorPresented) { _, presented in
+                if !presented { isCalendarFocused = true }
             }
             .onChange(of: store.wantsSearchFocus) { _, wants in
                 guard wants else { return }
@@ -43,10 +38,12 @@ struct CalendarContainerView: View {
                 store.wantsSearchFocus = false
             }
             .onKeyPress(keys: [.leftArrow, .rightArrow]) { press in
+                guard !store.isEditorPresented else { return .ignored }
                 store.step(press.key == .leftArrow ? -1 : 1)
                 return .handled
             }
             .onKeyPress(.space) { toggleFocus() }
+            .onKeyPress(.return) { openSelection() }
             .onKeyPress(.delete) { deleteSelection() }
             .onKeyPress(.deleteForward) { deleteSelection() }
             .onKeyPress(.escape) {
@@ -138,15 +135,16 @@ struct CalendarContainerView: View {
         .background(Color.primary.opacity(0.06), in: RoundedRectangle(cornerRadius: 7, style: .continuous))
     }
 
-    private var inspectorBinding: Binding<Bool> {
-        Binding(
-            get: { store.selectedTaskID != nil },
-            set: { if !$0 { store.select(nil) } }
-        )
+    /// ↩：打开选中日程的弹窗
+    private func openSelection() -> KeyPress.Result {
+        guard !store.isEditorPresented, let id = store.selectedTaskID else { return .ignored }
+        store.openEditor(id)
+        return .handled
     }
 
     /// Space：选中的日程正在专注就暂停 / 继续，否则开始专注；没选中时控制当前专注
     private func toggleFocus() -> KeyPress.Result {
+        guard !store.isEditorPresented else { return .ignored }
         if let task = taskStore.task(id: store.selectedTaskID), !focusEngine.isFocusing(on: task.id) {
             focusEngine.requestStart(task)
             return .handled
@@ -157,7 +155,7 @@ struct CalendarContainerView: View {
     }
 
     private func deleteSelection() -> KeyPress.Result {
-        guard let id = store.selectedTaskID else { return .ignored }
+        guard !store.isEditorPresented, let id = store.selectedTaskID else { return .ignored }
         store.select(nil)
         taskStore.delete(id: id)
         return .handled
@@ -165,7 +163,7 @@ struct CalendarContainerView: View {
 
     private func handleShortcut(_ press: KeyPress) -> KeyPress.Result {
         // 带 ⌘ / ⌃ / ⌥ 的组合键交给系统菜单处理
-        guard press.modifiers.isDisjoint(with: [.command, .control, .option]) else { return .ignored }
+        guard press.modifiers.isDisjoint(with: [.command, .control, .option]), !store.isEditorPresented else { return .ignored }
         switch press.characters.lowercased() {
         case "t": store.goToToday()
         case "d": store.mode = .day

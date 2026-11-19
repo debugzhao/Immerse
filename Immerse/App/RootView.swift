@@ -19,6 +19,9 @@ struct RootView: View {
             ToastOverlay()
         }
         .overlay {
+            TaskEditorOverlay()
+        }
+        .overlay {
             CommandPaletteOverlay()
         }
         .overlay {

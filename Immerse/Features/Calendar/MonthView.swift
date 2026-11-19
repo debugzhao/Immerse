@@ -172,6 +172,7 @@ private struct MonthEventRow: View {
         )
         .contentShape(Rectangle())
         .onTapGesture { store.select(task.id) }
+        .simultaneousGesture(TapGesture(count: 2).onEnded { store.openEditor(task.id) })
         .taskContextMenu(task)
     }
 }

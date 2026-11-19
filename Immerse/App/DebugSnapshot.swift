@@ -31,6 +31,7 @@ enum DebugFlags {
 /// - IMMERSE_SEARCH=<关键字>：在搜索框里输入
 /// - IMMERSE_MODE=day|week|month：日历视图
 /// - IMMERSE_FILTER=urgent：只显示紧急
+/// - IMMERSE_EDIT=<标题关键字> / IMMERSE_CREATE=1：打开日程弹窗
 ///
 /// 注意：透出桌面的毛玻璃（behindWindow）在截图里是纯色，真实效果以屏幕为准。
 @MainActor
@@ -53,6 +54,17 @@ enum DebugSnapshot {
         if let keyword = env["IMMERSE_SELECT"],
            let task = environment.taskStore.search(keyword).first {
             environment.calendarStore.reveal(task)
+        }
+        // IMMERSE_EDIT=<标题关键字>：打开日程弹窗（编辑）
+        if let keyword = env["IMMERSE_EDIT"],
+           let task = environment.taskStore.search(keyword).first {
+            environment.calendarStore.reveal(task)
+            environment.calendarStore.openEditor(task.id)
+        }
+        // IMMERSE_CREATE=1：打开新建弹窗（同 ⌘N）
+        if env["IMMERSE_CREATE"] != nil {
+            let interval = environment.calendarStore.defaultNewEventInterval()
+            environment.calendarStore.draft = DraftEvent(start: interval.start, end: interval.end)
         }
         if let keyword = env["IMMERSE_SEARCH"] {
             environment.calendarStore.searchText = keyword

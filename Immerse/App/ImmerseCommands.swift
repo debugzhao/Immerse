@@ -30,6 +30,11 @@ struct ImmerseCommands: Commands {
         CommandGroup(after: .pasteboard) {
             Divider()
             Button("删除日程") {
+                // 正在输入文字时 ⌘⌫ 是删除到行首
+                if let textView = NSApp.keyWindow?.firstResponder as? NSTextView {
+                    textView.deleteToBeginningOfLine(nil)
+                    return
+                }
                 guard let id = calendarStore.selectedTaskID else { return }
                 calendarStore.select(nil)
                 taskStore.delete(id: id)
@@ -58,7 +63,9 @@ struct ImmerseCommands: Commands {
 
         CommandMenu("专注") {
             Button("开始专注选中的日程") {
-                if let task = taskStore.task(id: calendarStore.selectedTaskID) {
+                if let submit = calendarStore.submitDraft {
+                    submit()
+                } else if let task = taskStore.task(id: calendarStore.selectedTaskID) {
                     focusEngine.requestStart(task)
                 }
             }
@@ -75,15 +82,11 @@ struct ImmerseCommands: Commands {
 
     private func newTask() {
         let interval = calendarStore.defaultNewEventInterval()
-        let task = taskStore.create(TaskSnapshot(
-            title: "",
-            start: interval.start,
-            end: interval.end,
-            isAllDay: false
-        ))
+        let hour = calendarStore.calendar.component(.hour, from: interval.start)
+        calendarStore.select(nil)
         calendarStore.anchorDate = interval.start
-        calendarStore.wantsTitleFocus = true
-        calendarStore.reveal(task)
+        calendarStore.scrollRequest = ScrollRequest(hour: max(hour - 1, 0))
+        calendarStore.draft = DraftEvent(start: interval.start, end: interval.end)
     }
 
     private func importNotion() {
