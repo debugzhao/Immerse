@@ -1,26 +1,9 @@
 import Foundation
-import OSLog
 
-/// Dev-time mock data: tasks taken from the Notion "Main Task Schedule", spread across this week, covering overlap, all-day, multi-day and every status.
+#if DEBUG
+/// Demo data for DEBUG screenshots only (IMMERSE_SNAPSHOT). Never compiled into Release builds and never written to a real store.
+/// Titles are generic examples, spread across this week, covering overlap, all-day, multi-day and every status.
 enum SampleData {
-    private static let seededKey = "didSeedSampleData"
-    private static let logger = Logger(subsystem: "com.debugzhao.immerse", category: "SampleData")
-
-    /// Only written when the database is empty and has never been seeded; it won't reappear after the user deletes everything.
-    @MainActor
-    static func seedIfNeeded(_ repository: TaskRepository, now: Date = .now, calendar: Calendar = .app) {
-        let defaults = UserDefaults.standard
-        guard !defaults.bool(forKey: seededKey) else { return }
-        do {
-            if try repository.isEmpty() {
-                try repository.insert(make(around: now, calendar: calendar))
-            }
-            defaults.set(true, forKey: seededKey)
-        } catch {
-            logger.error("写入示例数据失败：\(error.localizedDescription, privacy: .public)")
-        }
-    }
-
     /// For screenshot demos: adds a few focus sessions for this week's completed / in-progress timed tasks
     @MainActor
     static func seedFocusHistory(_ focus: FocusSessionRepository, tasks: TaskRepository,
@@ -62,26 +45,27 @@ enum SampleData {
 
         return [
             // Monday
-            allDay("了解 Creative 链，完成第一天的任务", 0, nil, .urgent, .done),
-            timed("阅读《第一性原理》", 0, 9, 30, 11, 0, .important, .done),
-            timed("了解 Uniswap 协议", 0, 14, 0, 15, 30, .urgent),
-            timed("学会使用区块浏览器", 0, 14, 30, 16, 0, .normal),
+            allDay("整理本周目标", 0, nil, .urgent, .done),
+            timed("晨间阅读", 0, 9, 30, 11, 0, .important, .done),
+            timed("产品需求评审", 0, 14, 0, 15, 30, .urgent),
+            timed("回复邮件", 0, 14, 30, 16, 0, .normal),
             // Tuesday
-            allDay("了解链上数据", 1, nil, .important),
-            timed("阅读《谈判技巧》", 1, 10, 0, 11, 0, .normal),
-            timed("整理 DeFi 学习笔记", 1, 16, 0, 16, 45, .normal),
+            allDay("学习新技能", 1, nil, .important),
+            timed("读书 30 页", 1, 10, 0, 11, 0, .normal),
+            timed("整理学习笔记", 1, 16, 0, 16, 45, .normal),
             // Wednesday: three overlapping tasks to verify the side-by-side layout
-            timed("了解交易所概念", 2, 9, 0, 12, 0, .urgent, .inProgress),
+            timed("写项目方案", 2, 9, 0, 12, 0, .urgent, .inProgress),
             timed("周会", 2, 10, 0, 11, 0, .normal, place: "3F 会议室"),
             timed("Code Review", 2, 10, 30, 11, 30, .important),
             // Thursday to Friday: multi-day all-day task
-            allDay("Creative 链黑客松", 3, 4, .important),
-            timed("了解 Creative 链生态", 3, 15, 0, 16, 0, .normal),
+            allDay("出差", 3, 4, .important),
+            timed("和团队同步进度", 3, 15, 0, 16, 0, .normal),
             // Friday
             timed("复盘本周", 4, 20, 0, 21, 30, .important),
             // Weekend
             timed("健身", 5, 10, 0, 11, 0, .normal, place: "健身房"),
-            timed("规划下周主线任务", 6, 21, 0, 22, 0, .urgent),
+            timed("规划下周", 6, 21, 0, 22, 0, .urgent),
         ]
     }
 }
+#endif

@@ -14,11 +14,15 @@ struct ImmerseApp: App {
         }
         let repository = SwiftDataTaskRepository(container: container)
         let focusRepository = SwiftDataFocusSessionRepository(tasks: repository)
+        #if DEBUG
         if PersistenceController.isSnapshotMode {
             try? repository.insert(SampleData.make(around: .now))
             SampleData.seedFocusHistory(focusRepository, tasks: repository)
-        } else if !PersistenceController.isRunningTests {
-            SampleData.seedIfNeeded(repository)
+        }
+        #endif
+        // New installs start with an empty calendar; installs of 0.1.x get the old demo tasks removed once
+        if !PersistenceController.isEphemeral {
+            LegacySampleCleanup.runIfNeeded(container: container)
         }
         _environment = State(initialValue: AppEnvironment(
             repository: repository,

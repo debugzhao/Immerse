@@ -8,6 +8,9 @@ struct TimeGridCalendarView: View {
     @Environment(CalendarStore.self) private var calendarStore
     /// Start remembering the scroll position only after the initial scroll, otherwise the first layout records 00:00
     @State private var tracksScroll = false
+    /// Scroll bars stay hidden while the grid appears: a freshly created NSScrollView plus the initial
+    /// programmatic scroll would otherwise flash the scroller on every day / week / month switch
+    @State private var showsScrollIndicators = false
 
     private var calendar: Calendar { calendarStore.calendar }
 
@@ -44,6 +47,7 @@ struct TimeGridCalendarView: View {
                         }
                     }
                 }
+                .scrollIndicators(showsScrollIndicators ? .automatic : .hidden)
                 .coordinateSpace(name: "timeGrid")
                 .onPreferenceChange(GridScrollOffsetKey.self) { [calendarStore, tracksScroll] minY in
                     guard tracksScroll else { return }
@@ -57,6 +61,9 @@ struct TimeGridCalendarView: View {
                     let hour = calendarStore.lastScrollHour ?? calendarStore.scrollRequest.hour
                     proxy.scrollTo(CalendarMetrics.scrollAnchorID(hour), anchor: .top)
                     tracksScroll = true
+                    // Bring the scroll bars back once the switch animation and the initial scroll have settled
+                    try? await Task.sleep(for: .milliseconds(600))
+                    showsScrollIndicators = true
                 }
                 .onChange(of: calendarStore.scrollRequest) { _, request in
                     withAnimation(Motion.gentle) {

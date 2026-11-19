@@ -667,3 +667,11 @@ IMMERSE_SNAPSHOT=/tmp/shot.png build/DerivedData/Build/Products/Debug/Immerse.ap
 | 每日复盘 | `DailyReviewScheduler` 用 `UNCalendarNotificationTrigger` 安排下一次提醒（默认 21:00）；任务变动、设置变动、每 30 分钟、睡眠唤醒都会重排，保证内容最新；内容由 `DailyReview.content` 纯函数生成 | App 很久没开时内容可能过期（以最后一次安排时为准） |
 | 时钟倒计时 | 「时钟」无公开 API，用快捷指令：`shortcuts run "Immerse 开始计时" --input-path <分钟数.txt>` →「从输入中获取数字」→「开始计时器」 | 暂停 / 提前结束不会同步到「时钟」 |
 
+### 14.x 修复：安装包带出开发者日程
+
+| 项 | 说明 |
+|---|---|
+| 原因 | 0.1.x 首次启动会写入 `SampleData` 示例任务（标题取自开发者的 Notion 日程），Release 也会执行，所以所有安装者都看到了这些任务。DMG 本身不含数据文件 |
+| 修复 | `SampleData` 只编进 DEBUG，仅供截图模式写入内存库，标题换成通用示例；正式版首次启动是空日历 |
+| 存量清理 | `LegacySampleCleanup` 启动时执行一次：只删「标题命中旧示例 + 同一批写入（createdAt 相差 ≤ 5 秒、至少 8 条）」的任务，用户自己建的同名任务不受影响；旧标题以 SHA-256 存储，二进制里不含明文 |
+
