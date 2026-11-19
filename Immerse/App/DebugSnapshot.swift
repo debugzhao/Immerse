@@ -89,6 +89,10 @@ enum DebugSnapshot {
             environment.calendarStore.unsavedDraft = TaskSnapshot(title: title, start: .now, end: nil, isAllDay: false,
                                                                   priority: .important, notes: "- [ ] 列提纲\n- [ ] 写初稿")
         }
+        // IMMERSE_EDIT_GOAL=1: open the first goal in the editor
+        if env["IMMERSE_EDIT_GOAL"] != nil, let goal = environment.taskStore.goals().last {
+            environment.calendarStore.openEditor(goal.id)
+        }
         // IMMERSE_CREATE=1: open the create sheet (same as ⌘N)
         if env["IMMERSE_CREATE"] != nil {
             let interval = environment.calendarStore.defaultNewEventInterval()

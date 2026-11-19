@@ -22,3 +22,6 @@ dist/
 
 # XcodeGen 生成的工程，以 project.yml 为准
 *.xcodeproj/
+
+# Claude Code local config and skills
+.claude/

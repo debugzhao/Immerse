@@ -15,6 +15,10 @@ final class TaskItem {
     var notes: String
     var place: String?
     var plannedMinutes: Int?
+    // Added with Inbox / Goals. Optional so existing stores migrate automatically (nil kind = event)
+    var kindRaw: String?
+    var goalID: UUID?
+    var targetMinutes: Int?
     var createdAt: Date
     var updatedAt: Date
 
@@ -33,6 +37,9 @@ final class TaskItem {
         notes = snapshot.notes
         place = snapshot.place
         plannedMinutes = snapshot.plannedMinutes
+        kindRaw = snapshot.kind.rawValue
+        goalID = snapshot.goalID
+        targetMinutes = snapshot.targetMinutes
         createdAt = now
         updatedAt = now
     }
@@ -48,7 +55,10 @@ final class TaskItem {
             status: TaskStatus(rawValue: statusRaw) ?? .todo,
             notes: notes,
             place: place,
-            plannedMinutes: plannedMinutes
+            plannedMinutes: plannedMinutes,
+            kind: kindRaw.flatMap(TaskKind.init(rawValue:)) ?? .event,
+            goalID: goalID,
+            targetMinutes: targetMinutes
         )
     }
 
@@ -62,6 +72,9 @@ final class TaskItem {
         notes = snapshot.notes
         place = snapshot.place
         plannedMinutes = snapshot.plannedMinutes
+        kindRaw = snapshot.kind.rawValue
+        goalID = snapshot.goalID
+        targetMinutes = snapshot.targetMinutes
         updatedAt = now
     }
 }

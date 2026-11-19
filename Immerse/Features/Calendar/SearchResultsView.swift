@@ -20,7 +20,7 @@ struct SearchResultsView: View {
                     VStack(spacing: 2) {
                         ForEach(results) { task in
                             Button {
-                                store.reveal(task)
+                                store.show(task)
                                 store.searchText = ""
                             } label: {
                                 row(task)

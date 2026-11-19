@@ -116,7 +116,8 @@ final class FocusEngine {
         now = startedAt
         timeUpAt = nil
         notifiedMilestones = []
-        taskStore.setStatusWithoutUndo(.inProgress, for: task.id)
+        // A goal spans many sessions: one focus run doesn't change its status
+        if task.kind != .goal { taskStore.setStatusWithoutUndo(.inProgress, for: task.id) }
 
         Task {
             await notifier.requestAuthorizationIfNeeded()
@@ -205,7 +206,9 @@ final class FocusEngine {
         } catch {
             logger.error("保存专注记录失败：\(error.localizedDescription, privacy: .public)")
         }
-        taskStore.setStatusWithoutUndo(reason == .abandoned ? .todo : .done, for: state.taskID)
+        if taskStore.task(id: state.taskID)?.kind != .goal {
+            taskStore.setStatusWithoutUndo(reason == .abandoned ? .todo : .done, for: state.taskID)
+        }
 
         let wasTimeUp = phase == .timeUp
         session = nil

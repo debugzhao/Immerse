@@ -1,12 +1,14 @@
 import SwiftUI
 
-/// Left sidebar: mini month calendar + today's tasks + filters. The system sidebar vibrancy comes from NavigationSplitView.
+/// Left sidebar: mini month calendar + today's tasks + Inbox + goals + focus + filters. The system sidebar vibrancy comes from NavigationSplitView.
 struct SidebarView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 24) {
                 MiniMonthView()
                 TodayTaskList()
+                InboxSection()
+                GoalsSection()
                 FocusSummaryView()
                 FilterView()
             }

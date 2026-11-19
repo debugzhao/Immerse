@@ -64,6 +64,9 @@ struct DayColumnView: View {
                 }
             }
         }
+        .acceptsPlanningDrop(allDay: false) { [dayStart] location in
+            CalendarMetrics.date(forY: location.y - 8, dayStart: dayStart)
+        }
         .background(calendar.isWeekend(day) ? Palette.weekendTint : .clear)
         .overlay(alignment: .leading) {
             Rectangle().fill(Palette.gridLine).frame(width: 0.5).allowsHitTesting(false)

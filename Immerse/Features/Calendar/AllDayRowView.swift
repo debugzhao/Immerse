@@ -46,6 +46,7 @@ struct AllDayRowView: View {
                                     store.draft = DraftEvent(start: day, end: day, isAllDay: true)
                                 }
                                 .onTapGesture { store.select(nil) }
+                                .acceptsPlanningDrop(allDay: true) { _ in day }
                         }
                     }
 

@@ -4,7 +4,12 @@ import Foundation
 @MainActor
 protocol TaskRepository: AnyObject {
     /// Returns tasks that overlap the interval on the calendar (half-open interval semantics), sorted by start time ascending.
+    /// Calendar events overlapping the interval (ideas and goals excluded)
     func tasks(in interval: DateInterval) throws -> [TaskSnapshot]
+    /// All tasks of a kind (Inbox ideas, goals). Small sets, no paging
+    func tasks(kind: TaskKind) throws -> [TaskSnapshot]
+    /// Events linked to a goal
+    func events(linkedTo goalID: UUID) throws -> [TaskSnapshot]
     func task(id: UUID) throws -> TaskSnapshot?
     /// Tasks whose title or notes contain the keyword, sorted by start time descending, at most `limit`.
     func search(_ keyword: String, limit: Int) throws -> [TaskSnapshot]
@@ -29,8 +34,16 @@ final class InMemoryTaskRepository: TaskRepository {
 
     func tasks(in interval: DateInterval) throws -> [TaskSnapshot] {
         items
-            .filter { $0.displayInterval(in: calendar).overlapsHalfOpen(interval) }
+            .filter { $0.kind == .event && $0.displayInterval(in: calendar).overlapsHalfOpen(interval) }
             .sorted { $0.start < $1.start }
+    }
+
+    func tasks(kind: TaskKind) throws -> [TaskSnapshot] {
+        items.filter { $0.kind == kind }.sorted { $0.start < $1.start }
+    }
+
+    func events(linkedTo goalID: UUID) throws -> [TaskSnapshot] {
+        items.filter { $0.kind == .event && $0.goalID == goalID }.sorted { $0.start < $1.start }
     }
 
     func task(id: UUID) throws -> TaskSnapshot? {

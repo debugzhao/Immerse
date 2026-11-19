@@ -685,3 +685,16 @@ IMMERSE_SNAPSHOT=/tmp/shot.png build/DerivedData/Build/Products/Debug/Immerse.ap
 | 安装 | 只负责提示和打开 DMG 下载链接，安装仍是拖进「应用程序」替换（无 Developer ID 证书，暂不做 Sparkle） |
 | 逻辑 | `AppVersion` 纯函数：数字比较版本（0.1.10 > 0.1.9）、解析 GitHub JSON；`UpdateChecker` 可注入 fetch 便于测试 |
 
+### 14.x 迭代：收集箱与目标
+
+| 项 | 说明 |
+|---|---|
+| 模型 | `TaskSnapshot.kind`：`event`（日程，原有）/ `idea`（收集箱）/ `goal`（目标，周期用全天的起止日期表示）；日程可带 `goalID` 关联目标；目标可设 `targetMinutes` |
+| 迁移 | `TaskItem` 新增 `kindRaw` / `goalID` / `targetMinutes`，全部可选，SwiftData 自动轻量迁移；`kindRaw == nil` 视为日程。已用真实数据库副本验证 |
+| 日历 | `tasks(in:)` 只返回日程，收集箱和目标不会出现在时间网格里 |
+| 排期 | 侧栏行 `.draggable(uuid)` → 时间网格 / 全天行 / 月视图 `.dropDestination`；想法拖入变成日程，目标拖入生成一条关联日程（目标本身保留）。均为一步撤销 |
+| 进度 | `GoalProgress` 纯函数：周期内「目标本身 + 关联日程」的专注时长 / 目标时长；没设时长时按完成次数；进度落后时间 15 个百分点以上算落后 |
+| 专注 | 可以直接专注目标，但不会改变目标的状态（目标跨多次完成） |
+| 入口 | 侧栏输入框；⌘K「想法：…」「本周目标：…」「本月目标：…」；任意输入都有「放进收集箱」选项 |
+| 复盘 | 每晚复盘通知附带「进度落后的目标」 |
+

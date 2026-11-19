@@ -29,8 +29,16 @@ final class AppEnvironment {
                                   progressMilestones: { settings.progressMilestones })
         clockTimer = ClockTimerService(settings: settings)
         updateChecker = UpdateChecker(defaults: isEphemeral ? UserDefaults(suiteName: "immerse.ephemeral") ?? .standard : .standard)
-        dailyReview = DailyReviewScheduler(taskStore: taskStore, settings: settings,
-                                           notifications: notifications, calendar: calendar)
+        dailyReview = DailyReviewScheduler(
+            taskStore: taskStore, settings: settings, notifications: notifications, calendar: calendar,
+            behindGoals: { [taskStore, focusEngine] _ in
+                taskStore.goals()
+                    .filter { $0.status != .done && $0.isActiveGoal(now: .now, calendar: calendar) }
+                    .compactMap { goal in
+                        let progress = goalProgress(goal, taskStore: taskStore, focusEngine: focusEngine, calendar: calendar)
+                        return progress.isBehind ? "\(goal.displayTitle) \(progress.percent)%（还剩 \(progress.daysLeft) 天）" : nil
+                    }
+            })
 
         notifications.onAction = { [focusEngine] action in focusEngine.handle(action) }
         if !isEphemeral {

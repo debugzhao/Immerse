@@ -60,6 +60,22 @@ final class TaskStore {
         return attempt("读取任务") { try repository.allTasks() } ?? []
     }
 
+    /// Inbox ideas, newest first
+    func ideas() -> [TaskSnapshot] {
+        _ = revision
+        return (attempt("读取收集箱") { try repository.tasks(kind: .idea) } ?? []).reversed()
+    }
+
+    func goals() -> [TaskSnapshot] {
+        _ = revision
+        return attempt("读取目标") { try repository.tasks(kind: .goal) } ?? []
+    }
+
+    func events(linkedTo goalID: UUID) -> [TaskSnapshot] {
+        _ = revision
+        return attempt("读取目标日程") { try repository.events(linkedTo: goalID) } ?? []
+    }
+
     // MARK: - Writing
 
     @discardableResult

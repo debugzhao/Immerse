@@ -131,10 +131,28 @@ struct CommandPaletteView: View {
         if !trimmed.isEmpty {
             let parsed = NaturalLanguageParser.parse(trimmed, calendar: store.calendar)
             let draft = parsed.makeSnapshot(now: .now, calendar: store.calendar)
-            if !draft.title.isEmpty {
+            if let goal = PlanningInput.goal(from: trimmed) {
+                // "本月目标：读完纳瓦尔宝典"
+                items.append(Item(id: "goal", kind: .create, icon: "target",
+                                  title: "新建\(goal.period.title)目标「\(goal.title)」", subtitle: "进度会在侧栏和日历顶部显示") {
+                    taskStore.createGoal(goal.title, period: goal.period, calendar: store.calendar)
+                    close()
+                })
+            } else if !draft.title.isEmpty {
                 items.append(Item(id: "create", kind: .create, icon: "plus.circle.fill",
                                   title: "新建「\(draft.title)」", subtitle: preview(draft),
                                   tint: draft.priority.color) { create(draft, startFocus: false) })
+            }
+            // Always offer "just capture it" for ideas that don't have a time yet
+            let idea = PlanningInput.idea(from: trimmed)
+            items.append(Item(id: "idea", kind: .create, icon: "lightbulb",
+                              title: "放进收集箱「\(idea)」", subtitle: "先记下来，以后再拖进日历") {
+                taskStore.captureIdea(idea)
+                close()
+            })
+            if PlanningInput.isExplicitIdea(trimmed), let index = items.firstIndex(where: { $0.id == "idea" }) {
+                // "想法：…" puts capture first so ↩ does it
+                items.insert(items.remove(at: index), at: 0)
             }
         }
 
@@ -143,10 +161,13 @@ struct CommandPaletteView: View {
 
         if !trimmed.isEmpty {
             items.append(contentsOf: taskStore.search(trimmed, limit: 6).map { task in
-                Item(id: "task-\(task.id)", kind: .task, icon: "calendar", title: task.displayTitle,
-                     subtitle: preview(task), tint: task.priority.color) {
-                    store.reveal(task)
+                Item(id: "task-\(task.id)", kind: .task,
+                     icon: task.kind == .idea ? "lightbulb" : task.kind == .goal ? "target" : "calendar",
+                     title: task.displayTitle,
+                     subtitle: task.kind == .idea ? "收集箱" : task.kind == .goal ? "目标" : preview(task),
+                     tint: task.priority.color) {
                     close()
+                    store.show(task)
                 }
             })
         }

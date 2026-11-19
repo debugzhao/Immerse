@@ -17,6 +17,12 @@ struct TaskSnapshot: Identifiable, Hashable, Sendable {
     var place: String?
     /// Planned focus duration (minutes); derived from the date range when nil.
     var plannedMinutes: Int?
+    /// Event / inbox idea / goal. Ideas and goals never show on the time grid
+    var kind: TaskKind = .event
+    /// For events: the goal this session works towards (its focus time counts towards the goal)
+    var goalID: UUID?
+    /// For goals: planned total focus time in minutes (nil = just count sessions)
+    var targetMinutes: Int?
 
     /// Fallback focus duration for all-day tasks or tasks with only a start time.
     static let defaultFocusMinutes = 60

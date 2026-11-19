@@ -26,7 +26,22 @@ final class SwiftDataTaskRepository: TaskRepository {
         )
         return try context.fetch(descriptor)
             .map(\.snapshot)
-            .filter { $0.displayInterval(in: calendar).overlapsHalfOpen(interval) }
+            .filter { $0.kind == .event && $0.displayInterval(in: calendar).overlapsHalfOpen(interval) }
+    }
+
+    func tasks(kind: TaskKind) throws -> [TaskSnapshot] {
+        // kindRaw is optional (nil = event for rows written before this feature), so filter in memory
+        let raw = kind.rawValue
+        let descriptor = kind == .event
+            ? FetchDescriptor<TaskItem>(sortBy: [SortDescriptor(\.start)])
+            : FetchDescriptor<TaskItem>(predicate: #Predicate { $0.kindRaw == raw }, sortBy: [SortDescriptor(\.start)])
+        return try context.fetch(descriptor).map(\.snapshot).filter { $0.kind == kind }
+    }
+
+    func events(linkedTo goalID: UUID) throws -> [TaskSnapshot] {
+        let id: UUID? = goalID
+        let descriptor = FetchDescriptor<TaskItem>(predicate: #Predicate { $0.goalID == id }, sortBy: [SortDescriptor(\.start)])
+        return try context.fetch(descriptor).map(\.snapshot).filter { $0.kind == .event }
     }
 
     func task(id: UUID) throws -> TaskSnapshot? {

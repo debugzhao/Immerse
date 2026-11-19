@@ -18,7 +18,11 @@ struct CalendarContainerView: View {
     }
 
     private var calendarArea: some View {
-        modeTransitionContainer
+        VStack(spacing: 0) {
+            GoalRibbon()
+            modeTransitionContainer
+        }
+        .animation(Motion.snappy, value: taskStore.goals().count)
             .overlay(alignment: .topTrailing) {
                 if !store.searchText.trimmingCharacters(in: .whitespaces).isEmpty {
                     SearchResultsView()

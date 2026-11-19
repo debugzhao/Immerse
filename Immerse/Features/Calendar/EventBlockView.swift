@@ -71,7 +71,8 @@ struct EventBlockView: View {
                 let showsSubtitle = !isNarrow && height >= 34
                 let titleLines = max(1, Int((height - (showsSubtitle ? 22 : 6)) / 15))
                 VStack(alignment: .leading, spacing: 1) {
-                    Text(task.displayTitle)
+                    // Sessions booked for a goal carry a small target mark
+                    (task.goalID != nil ? Text(Image(systemName: "target")) + Text(" ") + Text(task.displayTitle) : Text(task.displayTitle))
                         .font(.system(size: isNarrow ? 11 : 12, weight: .semibold))
                         .strikethrough(isDone)
                         .lineLimit(min(titleLines, showsSubtitle ? 2 : 6))

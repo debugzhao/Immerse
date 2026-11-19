@@ -187,6 +187,13 @@ private struct TaskEditCard: View {
     @ViewBuilder
     private func trailingActions(_ task: TaskSnapshot) -> some View {
         let isActive = focusEngine.isFocusing(on: task.id)
+        if task.kind != .idea {
+            focusButton(task, isActive: isActive)
+        }
+        moreMenu(task)
+    }
+
+    private func focusButton(_ task: TaskSnapshot, isActive: Bool) -> some View {
         Button {
             if isActive { focusEngine.togglePause() } else { focusEngine.requestStart(task) }
         } label: {
@@ -201,11 +208,21 @@ private struct TaskEditCard: View {
         .buttonStyle(.borderedProminent)
         .tint(task.priority.color)
         .disabled(task.status == .done && !isActive)
+    }
 
+    private func moreMenu(_ task: TaskSnapshot) -> some View {
         Menu {
             Button(task.status == .done ? "标记为未完成" : "标记完成") { taskStore.toggleDone(task.id) }
             Divider()
-            Button("删除日程", role: .destructive) {
+            if task.kind == .idea {
+                ForEach(GoalPeriod.allCases) { period in
+                    Button("设为\(period.title)目标") { taskStore.makeGoal(task.id, period: period, calendar: store.calendar) }
+                }
+            } else {
+                Button("移回收集箱") { taskStore.moveToInbox(task.id) }
+            }
+            Divider()
+            Button(task.kind == .event ? "删除日程" : task.kind == .goal ? "删除目标" : "删除想法", role: .destructive) {
                 store.select(nil)
                 taskStore.delete(id: task.id)
             }
@@ -294,9 +311,7 @@ private struct TaskEditorForm: View {
                 .padding(.bottom, 14)
 
             VStack(spacing: 2) {
-                PropertyRow(icon: "clock", title: "时间") {
-                    TimeProperty(task: $task)
-                }
+                kindRows
                 PropertyRow(icon: "flag", title: "优先级") {
                     ChipPicker(options: Priority.allCases, selection: $task.priority,
                                title: \.title, color: \.color)
@@ -313,8 +328,10 @@ private struct TaskEditorForm: View {
                     .textFieldStyle(.plain)
                     .font(.system(size: 13))
                 }
-                PropertyRow(icon: "timer", title: "专注时长") {
-                    FocusMinutesProperty(task: $task)
+                if task.kind != .goal {
+                    PropertyRow(icon: "timer", title: task.kind == .idea ? "预计时长" : "专注时长") {
+                        FocusMinutesProperty(task: $task)
+                    }
                 }
             }
 
@@ -327,6 +344,36 @@ private struct TaskEditorForm: View {
         .padding(.top, 8)
         .padding(.bottom, 18)
         .frame(maxHeight: .infinity, alignment: .top)
+    }
+
+    /// The rows that depend on what the task is
+    @ViewBuilder
+    private var kindRows: some View {
+        switch task.kind {
+        case .event:
+            PropertyRow(icon: "clock", title: "时间") {
+                TimeProperty(task: $task)
+            }
+            if let goalID = task.goalID {
+                PropertyRow(icon: "target", title: "所属目标") {
+                    LinkedGoalProperty(goalID: goalID)
+                }
+            }
+        case .idea:
+            PropertyRow(icon: "tray", title: "收集箱") {
+                IdeaScheduleProperty(task: task)
+            }
+        case .goal:
+            PropertyRow(icon: "calendar", title: "周期") {
+                GoalPeriodProperty(task: $task)
+            }
+            PropertyRow(icon: "hourglass", title: "目标时长") {
+                GoalTargetProperty(task: $task)
+            }
+            PropertyRow(icon: "chart.bar", title: "进度") {
+                GoalProgressProperty(goal: task)
+            }
+        }
     }
 }
 
@@ -729,5 +776,192 @@ private struct NotesEditor: View {
                 }
             }
             .frame(maxHeight: .infinity)
+    }
+}
+
+// MARK: - Inbox / goal properties
+
+/// Idea: not scheduled yet; quick actions to schedule or promote it
+private struct IdeaScheduleProperty: View {
+    let task: TaskSnapshot
+    @Environment(CalendarStore.self) private var store
+    @Environment(TaskStore.self) private var taskStore
+
+    var body: some View {
+        HStack(spacing: 8) {
+            Text("还没安排")
+                .font(.system(size: 13))
+                .foregroundStyle(.secondary)
+            Button("安排到今天") {
+                let start = store.defaultNewEventInterval(now: .now).start
+                if let event = taskStore.schedule(task.id, at: start, calendar: store.calendar) {
+                    store.editingTaskID = nil
+                    store.reveal(event)
+                }
+            }
+            ForEach(GoalPeriod.allCases) { period in
+                Button("设为\(period.title)目标") { taskStore.makeGoal(task.id, period: period, calendar: store.calendar) }
+            }
+        }
+        .buttonStyle(.link)
+        .font(.system(size: 12))
+    }
+}
+
+/// Goal: this week / this month, plus the actual date range and days left
+private struct GoalPeriodProperty: View {
+    @Binding var task: TaskSnapshot
+    @Environment(CalendarStore.self) private var store
+
+    var body: some View {
+        let calendar = store.calendar
+        let interval = task.displayInterval(in: calendar)
+        let last = interval.end.addingTimeInterval(-1)
+        HStack(spacing: 8) {
+            ForEach(GoalPeriod.allCases) { period in
+                let range = period.range(containing: .now, calendar: calendar)
+                let isOn = calendar.isDate(task.start, inSameDayAs: range.start)
+                    && calendar.isDate(last, inSameDayAs: range.lastDay)
+                Button {
+                    task.start = range.start
+                    task.end = range.lastDay
+                    task.isAllDay = true
+                } label: {
+                    Text(period.title)
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundStyle(isOn ? Color.white : Color.primary)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 3)
+                        .background(isOn ? AnyShapeStyle(Color.accentColor) : AnyShapeStyle(Color.primary.opacity(0.07)), in: Capsule())
+                }
+                .buttonStyle(.plain)
+            }
+            Text("\(day(task.start)) – \(day(last))")
+                .font(.system(size: 12))
+                .monospacedDigit()
+                .foregroundStyle(.secondary)
+        }
+    }
+
+    private func day(_ date: Date) -> String {
+        "\(store.calendar.component(.month, from: date))月\(store.calendar.component(.day, from: date))日"
+    }
+}
+
+/// Goal: planned total focus time
+private struct GoalTargetProperty: View {
+    @Binding var task: TaskSnapshot
+    @State private var isPresented = false
+
+    private static let presets = [3, 5, 10, 20, 30]
+
+    var body: some View {
+        Button { isPresented = true } label: {
+            Text(task.targetMinutes.map { "\($0 / 60) 小时" } ?? "不设（按完成次数算进度）")
+                .font(.system(size: 13))
+                .foregroundStyle(task.targetMinutes == nil ? .secondary : .primary)
+                .padding(.horizontal, 4)
+                .padding(.vertical, 3)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .padding(.leading, -4)
+        .popover(isPresented: $isPresented, arrowEdge: .bottom) {
+            VStack(alignment: .leading, spacing: 2) {
+                option("不设", isSelected: task.targetMinutes == nil) { task.targetMinutes = nil }
+                Divider().padding(.vertical, 2)
+                ForEach(Self.presets, id: \.self) { hours in
+                    option("\(hours) 小时", isSelected: task.targetMinutes == hours * 60) { task.targetMinutes = hours * 60 }
+                }
+                Divider().padding(.vertical, 2)
+                Stepper(value: Binding(get: { (task.targetMinutes ?? 0) / 60 }, set: { task.targetMinutes = max($0, 1) * 60 }),
+                        in: 1...200) {
+                    Text(verbatim: "自定义 \((task.targetMinutes ?? 0) / 60) 小时")
+                        .font(.system(size: 12))
+                        .monospacedDigit()
+                }
+                .padding(.horizontal, 4)
+            }
+            .padding(6)
+            .frame(width: 190)
+        }
+    }
+
+    private func option(_ title: String, isSelected: Bool, action: @escaping () -> Void) -> some View {
+        Button {
+            action()
+            isPresented = false
+        } label: {
+            HStack {
+                Text(title).font(.system(size: 13))
+                Spacer()
+                if isSelected {
+                    Image(systemName: "checkmark").font(.system(size: 11, weight: .semibold)).foregroundStyle(.secondary)
+                }
+            }
+            .padding(.horizontal, 6)
+            .padding(.vertical, 4)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+    }
+}
+
+/// Goal: progress bar + focus time / sessions + next scheduled session
+private struct GoalProgressProperty: View {
+    let goal: TaskSnapshot
+    @Environment(CalendarStore.self) private var store
+    @Environment(TaskStore.self) private var taskStore
+    @Environment(FocusEngine.self) private var focusEngine
+
+    var body: some View {
+        let progress = goalProgress(goal, taskStore: taskStore, focusEngine: focusEngine, calendar: store.calendar)
+        let next = taskStore.events(linkedTo: goal.id).first { $0.start > .now && $0.status != .done }
+        VStack(alignment: .leading, spacing: 5) {
+            HStack(spacing: 10) {
+                ProgressBar(fraction: progress.fraction, color: goal.status == .done ? .green : goal.priority.color)
+                    .frame(width: 160)
+                Text(verbatim: "\(progress.percent)%  ·  \(progress.summary)")
+                    .font(.system(size: 12))
+                    .monospacedDigit()
+                if progress.isBehind {
+                    Text("进度落后").font(.system(size: 11)).foregroundStyle(.orange)
+                }
+            }
+            Text(nextText(next, progress: progress))
+                .font(.system(size: 11))
+                .foregroundStyle(.tertiary)
+        }
+        .padding(.vertical, 4)
+    }
+
+    private func nextText(_ next: TaskSnapshot?, progress: GoalProgress) -> String {
+        let left = "还剩 \(progress.daysLeft) 天"
+        guard let next else { return "\(left) · 从侧栏把目标拖到日历上，安排下一次时间" }
+        let c = store.calendar
+        return "\(left) · 下一次：\(c.component(.month, from: next.start))月\(c.component(.day, from: next.start))日 \(TimeText.hhmm(next.start, calendar: c))"
+    }
+}
+
+/// Event linked to a goal: shows the goal, click to open it
+private struct LinkedGoalProperty: View {
+    let goalID: UUID
+    @Environment(CalendarStore.self) private var store
+    @Environment(TaskStore.self) private var taskStore
+
+    var body: some View {
+        if let goal = taskStore.task(id: goalID) {
+            Button { store.openEditor(goal.id) } label: {
+                Label(goal.displayTitle, systemImage: "target")
+                    .font(.system(size: 12, weight: .medium))
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 3)
+                    .background(goal.priority.color.opacity(0.16), in: Capsule())
+            }
+            .buttonStyle(.plain)
+            .help("打开目标")
+        } else {
+            Text("目标已删除").font(.system(size: 12)).foregroundStyle(.tertiary)
+        }
     }
 }

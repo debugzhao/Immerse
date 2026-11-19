@@ -181,6 +181,15 @@ final class CalendarStore {
         editingTaskID = id
     }
 
+    /// Search result picked: events jump to their date, Inbox ideas and goals open in the editor
+    func show(_ task: TaskSnapshot) {
+        if task.kind == .event {
+            reveal(task)
+        } else {
+            openEditor(task.id)
+        }
+    }
+
     /// Jump to the date of a task and select it
     func reveal(_ task: TaskSnapshot) {
         anchorDate = task.start

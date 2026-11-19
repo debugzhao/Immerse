@@ -43,7 +43,24 @@ enum SampleData {
                          priority: priority, status: status)
         }
 
-        return [
+        let month = GoalPeriod.month.range(containing: date, calendar: calendar)
+        let week = GoalPeriod.week.range(containing: date, calendar: calendar)
+        let reading = TaskSnapshot(title: "读完《纳瓦尔宝典》", start: month.start, end: month.lastDay, isAllDay: true,
+                                   priority: .important, kind: .goal, targetMinutes: 600)
+        let workout = TaskSnapshot(title: "每周健身 3 次", start: week.start, end: week.lastDay, isAllDay: true, kind: .goal)
+        func session(_ goal: TaskSnapshot, _ d: Int, _ h: Int, _ status: TaskStatus = .todo) -> TaskSnapshot {
+            TaskSnapshot(title: goal.title, start: at(d, h), end: at(d, h + 1), isAllDay: false,
+                         priority: goal.priority, status: status, goalID: goal.id)
+        }
+        let planning: [TaskSnapshot] = [
+            reading, workout,
+            session(reading, 0, 20, .done), session(reading, 3, 20), session(workout, 1, 7, .done), session(workout, 4, 7),
+            TaskSnapshot(title: "找全球工作的 Agent", start: date, end: nil, isAllDay: false, kind: .idea),
+            TaskSnapshot(title: "研究个人网站方案", start: date, end: nil, isAllDay: false, kind: .idea),
+            TaskSnapshot(title: "换一个记账 App", start: date, end: nil, isAllDay: false, kind: .idea),
+        ]
+
+        return planning + [
             // Monday
             allDay("整理本周目标", 0, nil, .urgent, .done),
             timed("晨间阅读", 0, 9, 30, 11, 0, .important, .done),

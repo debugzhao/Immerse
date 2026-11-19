@@ -136,6 +136,7 @@ private struct MonthDayCell: View {
             store.mode = .day
         }
         .onTapGesture { store.select(nil) }
+        .acceptsPlanningDrop(allDay: true) { [day] _ in day }
         .opacity(inMonth ? 1 : 0.6)
     }
 }
