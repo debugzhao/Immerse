@@ -29,8 +29,8 @@ targets:
         # The .app file name and Info.plist name stay "Immerse"; the localized name 「沉浸日程」 comes from *.lproj/InfoPlist.strings
         CFBundleDisplayName: Immerse
         LSHasLocalizedDisplayName: true
-        CFBundleShortVersionString: "0.1.3"
-        CFBundleVersion: "4"
+        CFBundleShortVersionString: "0.1.4"
+        CFBundleVersion: "5"
         CFBundleDevelopmentRegion: zh-Hans
         LSApplicationCategoryType: public.app-category.productivity
         LSMinimumSystemVersion: "$(MACOSX_DEPLOYMENT_TARGET)"
