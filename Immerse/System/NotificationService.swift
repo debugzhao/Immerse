@@ -33,7 +33,7 @@ enum FocusNotificationAction: String {
 
 @MainActor
 @Observable
-final class NotificationService: NSObject, FocusNotifying {
+final class NotificationService: NSObject, FocusNotifying, AutoFocusNotifying {
     enum Permission: Equatable {
         case unknown
         case notDetermined
@@ -53,6 +53,16 @@ final class NotificationService: NSObject, FocusNotifying {
     private let isSilenced: Bool
     /// The user tapped a button on the notification
     @ObservationIgnored var onAction: ((FocusNotificationAction) -> Void)?
+    /// The user tapped a button on an auto-focus notification (the UUID is the event's)
+    @ObservationIgnored var onAutoFocusAction: ((AutoFocusAction, UUID) -> Void)?
+
+    static let upcomingCategoryID = "AUTO_FOCUS_UPCOMING"
+    static let autoStartedCategoryID = "AUTO_FOCUS_STARTED"
+    static let conflictCategoryID = "AUTO_FOCUS_CONFLICT"
+    private static let upcomingID = "auto-focus-upcoming"
+    private static let autoStartedID = "auto-focus-started"
+    private static let conflictID = "auto-focus-conflict"
+    nonisolated static let taskIDKey = "taskID"
 
     init(isSilenced: Bool = false) {
         self.isSilenced = isSilenced
@@ -63,9 +73,19 @@ final class NotificationService: NSObject, FocusNotifying {
                                             title: "标记完成", options: [])
         let extend = UNNotificationAction(identifier: FocusNotificationAction.extend.rawValue,
                                           title: "再延长 15 分钟", options: [])
+        let snooze = UNNotificationAction(identifier: AutoFocusAction.snooze.rawValue, title: "推迟 5 分钟", options: [])
+        let skip = UNNotificationAction(identifier: AutoFocusAction.skip.rawValue, title: "跳过", options: [])
+        let abandon = UNNotificationAction(identifier: AutoFocusAction.abandon.rawValue, title: "放弃本次", options: [])
+        let switchFocus = UNNotificationAction(identifier: AutoFocusAction.switchFocus.rawValue, title: "切换到这个日程", options: [])
         center.setNotificationCategories([
             UNNotificationCategory(identifier: Self.categoryID, actions: [complete, extend],
-                                   intentIdentifiers: [], options: [])
+                                   intentIdentifiers: [], options: []),
+            UNNotificationCategory(identifier: Self.upcomingCategoryID, actions: [snooze, skip],
+                                   intentIdentifiers: [], options: []),
+            UNNotificationCategory(identifier: Self.autoStartedCategoryID, actions: [abandon],
+                                   intentIdentifiers: [], options: []),
+            UNNotificationCategory(identifier: Self.conflictCategoryID, actions: [switchFocus],
+                                   intentIdentifiers: [], options: []),
         ])
     }
 
@@ -171,6 +191,63 @@ final class NotificationService: NSObject, FocusNotifying {
         center.removePendingNotificationRequests(withIdentifiers: [Self.dailyReviewID])
     }
 
+    // MARK: - Auto focus
+
+    func scheduleAutoFocusUpcoming(taskID: UUID, title: String, start: Date, at date: Date) {
+        let interval = date.timeIntervalSinceNow
+        guard !isSilenced, interval > 1 else { return }
+        let lead = max(Int((start.timeIntervalSince(date) / 60).rounded()), 1)
+        let content = UNMutableNotificationContent()
+        content.title = "「\(title)」\(lead) 分钟后开始"
+        content.body = "\(TimeText.hhmm(start)) 到点会自动开始专注，任务转为进行中"
+        content.sound = .default
+        content.categoryIdentifier = Self.upcomingCategoryID
+        content.userInfo = [Self.taskIDKey: taskID.uuidString]
+        // Same identifier: a newer schedule replaces the queued one
+        let request = UNNotificationRequest(
+            identifier: Self.upcomingID, content: content,
+            trigger: UNTimeIntervalNotificationTrigger(timeInterval: interval, repeats: false))
+        center.add(request) { [logger] error in
+            if let error { logger.error("安排开始提醒失败：\(error.localizedDescription, privacy: .public)") }
+        }
+    }
+
+    func cancelAutoFocusUpcoming() {
+        guard !isSilenced else { return }
+        center.removePendingNotificationRequests(withIdentifiers: [Self.upcomingID])
+    }
+
+    func postAutoFocusStarted(taskID: UUID, title: String, plannedSeconds: Int) {
+        guard !isSilenced else { return }
+        center.removeDeliveredNotifications(withIdentifiers: [Self.upcomingID])
+        let content = UNMutableNotificationContent()
+        content.title = "已开始专注「\(title)」"
+        content.body = "日程到点，自动开始专注 \(DurationText.minutes(plannedSeconds))，任务已转为进行中"
+        content.sound = .default
+        content.categoryIdentifier = Self.autoStartedCategoryID
+        content.userInfo = [Self.taskIDKey: taskID.uuidString]
+        postNow(content, identifier: Self.autoStartedID)
+    }
+
+    func postAutoFocusConflict(taskID: UUID, title: String, currentTitle: String) {
+        guard !isSilenced else { return }
+        center.removeDeliveredNotifications(withIdentifiers: [Self.upcomingID])
+        let content = UNMutableNotificationContent()
+        content.title = "「\(title)」已到开始时间"
+        content.body = "正在专注「\(currentTitle)」，没有打断。要切换到这个日程吗？"
+        content.sound = .default
+        content.categoryIdentifier = Self.conflictCategoryID
+        content.userInfo = [Self.taskIDKey: taskID.uuidString]
+        postNow(content, identifier: Self.conflictID)
+    }
+
+    private func postNow(_ content: UNNotificationContent, identifier: String) {
+        let request = UNNotificationRequest(identifier: identifier, content: content, trigger: nil)
+        center.add(request) { [logger] error in
+            if let error { logger.error("发送通知失败：\(error.localizedDescription, privacy: .public)") }
+        }
+    }
+
     func postTimeUp(title: String) {
         guard !isSilenced else { return }
         cancelBackup()
@@ -208,8 +285,11 @@ extension NotificationService: UNUserNotificationCenterDelegate {
     nonisolated func userNotificationCenter(_ center: UNUserNotificationCenter,
                                             didReceive response: UNNotificationResponse) async {
         let identifier = response.actionIdentifier
+        let taskID = (response.notification.request.content.userInfo[Self.taskIDKey] as? String).flatMap(UUID.init)
         await MainActor.run {
-            if let action = FocusNotificationAction(rawValue: identifier) {
+            if let action = AutoFocusAction(rawValue: identifier), let taskID {
+                onAutoFocusAction?(action, taskID)
+            } else if let action = FocusNotificationAction(rawValue: identifier) {
                 onAction?(action)
             } else {
                 // tapped the notification itself: bring the app to the front

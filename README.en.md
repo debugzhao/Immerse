@@ -22,7 +22,7 @@ A macOS calendar app for scheduling and deep focus: manage your events on a cale
 | 📝 Notes | Lightweight Markdown: headings, bold / italic, code, lists, quotes and `- [ ]` to-dos (click to check); Return continues a list, ⌘B / ⌘I |
 | 🔍 Search | ⌘F searches titles and notes; click a result to jump to its date and select it |
 | ⌘K Command palette | Create events in natural language (Chinese), e.g. 「明天下午3点 阅读《第一性原理》 1小时 重要」 ("tomorrow 3 pm, read *First Principles*, 1 hour, important"); also runs commands and jumps to events |
-| ⏱ Focus | One-click countdown; remaining time in the menu bar; pause / +15 min / finish early / give up; full-screen immersive mode; optionally start a matching timer in the system Clock app (requires Shortcuts) |
+| ⏱ Focus | One-click countdown; timed events start focusing automatically when they begin and switch to In Progress (a system notification one minute ahead lets you snooze 5 minutes or skip); remaining time in the menu bar; pause / +15 min / finish early / give up; full-screen immersive mode; optionally start a matching timer in the system Clock app (requires Shortcuts) |
 | 🔔 Reminders | Focus progress reminders (50% / 80% by default, configurable); time-up alert; a daily 21:00 reminder for unfinished tasks (time configurable) |
 | 🌙 Do Not Disturb | Turns system Do Not Disturb on via Shortcuts while you focus, and off again before the time-up alert |
 | 📊 Stats | A focus summary in the sidebar opens the stats window: today / this week focus time, sessions completed this week, focus streak, a 7-day bar chart and your most-focused tasks this week; thin green bars on the calendar show when you actually focused |

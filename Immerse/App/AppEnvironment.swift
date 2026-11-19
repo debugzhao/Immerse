@@ -12,6 +12,8 @@ final class AppEnvironment {
     let clockTimer: ClockTimerService
     let updateChecker: UpdateChecker
     private let dailyReview: DailyReviewScheduler
+    /// nil for tests / screenshots, so sample events never start a session on their own
+    private let autoFocus: AutoFocusScheduler?
     private var powerMonitor: PowerMonitor?
 
     /// - Parameter isEphemeral: tests / screenshots: no system notifications, no toggling of the real Do Not Disturb
@@ -40,18 +42,27 @@ final class AppEnvironment {
                     }
             })
 
+        autoFocus = isEphemeral ? nil : AutoFocusScheduler(
+            taskStore: taskStore, focusEngine: focusEngine, settings: settings,
+            notifier: notifications, calendar: calendar)
+
         notifications.onAction = { [focusEngine] action in focusEngine.handle(action) }
+        notifications.onAutoFocusAction = { [autoFocus] action, taskID in autoFocus?.handle(action, taskID: taskID) }
         if !isEphemeral {
             focusEngine.onStarted = { [clockTimer] session in
                 clockTimer.startIfEnabled(minutes: max(session.plannedSeconds / 60, 1))
             }
         }
-        powerMonitor = PowerMonitor { [focusEngine, dailyReview] in
+        powerMonitor = PowerMonitor { [focusEngine, dailyReview, autoFocus] in
             focusEngine.tick()
             dailyReview.reschedule()
+            // Catch up an event that began while the Mac was asleep
+            autoFocus?.evaluate()
         }
+        // Restore first: an event whose session survived a relaunch must not be started a second time
         focusEngine.restore()
         dailyReview.start()
+        autoFocus?.start()
         if !isEphemeral {
             Task { [updateChecker] in await updateChecker.checkAutomaticallyIfDue() }
         }

@@ -16,6 +16,7 @@ final class SettingsStore {
         static let dailyReviewMinutes = "notify.dailyReview.minutes"
         static let clockTimerEnabled = "clockTimer.enabled"
         static let clockTimerShortcut = "clockTimer.shortcut"
+        static let autoFocusEnabled = "autoFocus.enabled"
     }
 
     static let defaultClockTimerShortcut = "Immerse 开始计时"
@@ -44,6 +45,8 @@ final class SettingsStore {
     /// Use a shortcut to start a countdown in Clock when focus begins
     var clockTimerEnabled: Bool { didSet { defaults.set(clockTimerEnabled, forKey: Key.clockTimerEnabled) } }
     var clockTimerShortcut: String { didSet { defaults.set(clockTimerShortcut, forKey: Key.clockTimerShortcut) } }
+    /// Start focusing automatically when a timed event begins
+    var autoFocusEnabled: Bool { didSet { defaults.set(autoFocusEnabled, forKey: Key.autoFocusEnabled) } }
 
     func toggleMilestone(_ percent: Int) {
         if progressMilestones.contains(percent) {
@@ -63,6 +66,7 @@ final class SettingsStore {
             Key.dailyReviewMinutes: 21 * 60,
             Key.clockTimerEnabled: true,
             Key.clockTimerShortcut: Self.defaultClockTimerShortcut,
+            Key.autoFocusEnabled: true,
         ])
         dndEnabled = defaults.bool(forKey: Key.dndEnabled)
         dndOnShortcut = defaults.string(forKey: Key.dndOnShortcut) ?? Self.defaultOnShortcut
@@ -74,5 +78,6 @@ final class SettingsStore {
         dailyReviewMinutes = defaults.integer(forKey: Key.dailyReviewMinutes)
         clockTimerEnabled = defaults.bool(forKey: Key.clockTimerEnabled)
         clockTimerShortcut = defaults.string(forKey: Key.clockTimerShortcut) ?? Self.defaultClockTimerShortcut
+        autoFocusEnabled = defaults.bool(forKey: Key.autoFocusEnabled)
     }
 }

@@ -61,6 +61,14 @@ private struct ReminderSettingsTab: View {
         @Bindable var settings = settings
         Form {
             Section {
+                Toggle("日程开始时自动开始专注", isOn: $settings.autoFocusEnabled)
+            } header: {
+                Text("自动专注")
+            } footer: {
+                footnote("有具体时间的日程到点后自动开始专注，任务转为进行中，并发系统通知；开始前 1 分钟会先提醒，可以推迟 5 分钟或跳过。已有专注在进行时不会打断，会发通知问你要不要切换。App 没开着或电脑在睡眠时错过的，下次打开或唤醒时如果日程还没结束，会按剩余时间补上。") { EmptyView() }
+            }
+
+            Section {
                 VStack(alignment: .leading, spacing: 10) {
                     Text("专注到这些进度时提醒我（时间到总会提醒）")
                         .font(.system(size: 13))

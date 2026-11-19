@@ -106,10 +106,19 @@ final class FocusEngine {
         start(task)
     }
 
-    func start(_ task: TaskSnapshot) {
+    /// End the current session (if any, counted as abandoned) and start `task` right away, without asking.
+    /// Used when the user picks "switch" on a system notification, which is already an explicit choice.
+    func switchTo(_ task: TaskSnapshot, plannedSeconds: Int? = nil) {
+        pendingSwitch = nil
+        if session != nil { finish(.abandoned) }
+        start(task, plannedSeconds: plannedSeconds)
+    }
+
+    /// - Parameter plannedSeconds: overrides the task's own focus length (auto-start uses the time left in the event)
+    func start(_ task: TaskSnapshot, plannedSeconds: Int? = nil) {
         let startedAt = clock()
         let state = FocusSessionState(taskID: task.id, taskTitle: task.displayTitle,
-                                      startedAt: startedAt, plannedSeconds: task.focusMinutes * 60)
+                                      startedAt: startedAt, plannedSeconds: plannedSeconds ?? task.focusMinutes * 60)
         guard persist(state) else { return }
         session = state
         phase = .running
