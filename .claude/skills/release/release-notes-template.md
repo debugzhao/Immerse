@@ -22,4 +22,4 @@
 xattr -dr com.apple.quarantine /Applications/Immerse.app
 ```
 
-使用说明见 [README](https://github.com/debugzhao/schedule-management#readme)。
+使用说明见 [README](https://github.com/debugzhao/Immerse#readme)。

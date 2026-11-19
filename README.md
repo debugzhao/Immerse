@@ -38,7 +38,7 @@
 
 ## 下载安装
 
-1. 到 [Releases](https://github.com/debugzhao/schedule-management/releases/latest) 下载 `Immerse-x.y.z.dmg`（需要 macOS 14+，Apple 芯片和 Intel 都支持）
+1. 到 [Releases](https://github.com/debugzhao/Immerse/releases/latest) 下载 `Immerse-x.y.z.dmg`（需要 macOS 14+，Apple 芯片和 Intel 都支持）
 2. 打开 DMG，把 `Immerse` 拖进「应用程序」
 3. 首次打开：App 没有经过 Apple 公证，直接双击会被系统拦下。按系统版本放行一次，之后就能正常双击启动：
    - **macOS 15 及以上**：先双击一次被拦下 → 打开「系统设置 → 隐私与安全性」，滚到底部点「仍要打开」→ 再点「打开」
