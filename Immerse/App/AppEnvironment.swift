@@ -9,6 +9,8 @@ final class AppEnvironment {
     let focusEngine: FocusEngine
     let notifications: NotificationService
     let shortcutsDND: ShortcutsDoNotDisturbService
+    let clockTimer: ClockTimerService
+    private let dailyReview: DailyReviewScheduler
     private var powerMonitor: PowerMonitor?
 
     /// - Parameter isEphemeral: 测试 / 截图：不发系统通知、不切换真实的勿扰
@@ -20,11 +22,25 @@ final class AppEnvironment {
         notifications = NotificationService(isSilenced: isEphemeral)
         shortcutsDND = ShortcutsDoNotDisturbService(settings: settings)
         let dnd: DoNotDisturbServicing = isEphemeral ? NoopDoNotDisturbService() : shortcutsDND
+        let settings = self.settings
         focusEngine = FocusEngine(taskStore: taskStore, repository: focusRepository,
-                                  notifier: notifications, dnd: dnd)
+                                  notifier: notifications, dnd: dnd,
+                                  progressMilestones: { settings.progressMilestones })
+        clockTimer = ClockTimerService(settings: settings)
+        dailyReview = DailyReviewScheduler(taskStore: taskStore, settings: settings,
+                                           notifications: notifications, calendar: calendar)
 
         notifications.onAction = { [focusEngine] action in focusEngine.handle(action) }
-        powerMonitor = PowerMonitor { [focusEngine] in focusEngine.tick() }
+        if !isEphemeral {
+            focusEngine.onStarted = { [clockTimer] session in
+                clockTimer.startIfEnabled(minutes: max(session.plannedSeconds / 60, 1))
+            }
+        }
+        powerMonitor = PowerMonitor { [focusEngine, dailyReview] in
+            focusEngine.tick()
+            dailyReview.reschedule()
+        }
         focusEngine.restore()
+        dailyReview.start()
     }
 }

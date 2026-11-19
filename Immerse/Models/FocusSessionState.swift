@@ -54,6 +54,12 @@ struct FocusSessionState: Equatable, Sendable {
         startedAt.addingTimeInterval(TimeInterval(plannedSeconds + pausedSeconds))
     }
 
+    /// 专注进度到达 fraction（0~1）的时刻，按当前状态推算；暂停中返回 nil
+    func moment(atProgress fraction: Double, now: Date) -> Date? {
+        guard !isPaused else { return nil }
+        return now.addingTimeInterval(TimeInterval(plannedSeconds) * fraction - elapsed(at: now))
+    }
+
     func progress(at now: Date) -> Double {
         guard plannedSeconds > 0 else { return 1 }
         return min(max(elapsed(at: now) / TimeInterval(plannedSeconds), 0), 1)

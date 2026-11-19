@@ -14,7 +14,7 @@ struct TaskEditorOverlay: View {
                     TaskEditCard(taskID: id, height: height)
                         .id(id)
                 } else if let draft = store.draft {
-                    TaskCreateCard(draft: draft, height: height)
+                    TaskCreateCard(initial: store.makeNewTask(for: draft), height: height)
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -55,30 +55,40 @@ private struct TaskCreateCard: View {
     @Environment(CalendarStore.self) private var store
     @Environment(TaskStore.self) private var taskStore
     @State private var task: TaskSnapshot
+    /// 内容是从上次没保存的草稿恢复的
+    @State private var isRestored: Bool
+    @State private var didCreate = false
     @FocusState private var isTitleFocused: Bool
 
-    init(draft: DraftEvent, height: CGFloat) {
+    init(initial: (task: TaskSnapshot, isRestored: Bool), height: CGFloat) {
         self.height = height
-        _task = State(initialValue: TaskSnapshot(
-            title: "",
-            start: draft.start,
-            end: draft.isAllDay ? nil : draft.end,
-            isAllDay: draft.isAllDay
-        ))
+        _task = State(initialValue: initial.task)
+        _isRestored = State(initialValue: initial.isRestored)
     }
 
     var body: some View {
         EditorModal(height: height, onDismiss: dismiss) {
             VStack(spacing: 0) {
                 EditorTopBar(onClose: cancel) {
-                    Text("新日程")
-                        .font(.system(size: 12, weight: .medium))
+                    if isRestored {
+                        HStack(spacing: 6) {
+                            Image(systemName: "arrow.uturn.backward.circle")
+                            Text("已恢复上次未保存的内容")
+                            Button("清空", action: clearRestored)
+                                .buttonStyle(.link)
+                        }
+                        .font(.system(size: 12))
                         .foregroundStyle(.secondary)
+                    } else {
+                        Text("新日程")
+                            .font(.system(size: 12, weight: .medium))
+                            .foregroundStyle(.secondary)
+                    }
                 }
                 TaskEditorForm(task: $task, isTitleFocused: $isTitleFocused, onSubmitTitle: create)
                 Divider()
                 HStack(spacing: 10) {
-                    Text("↩ 或 ⌘↩ 创建 · Esc 取消")
+                    Text("↩ 或 ⌘↩ 创建 · Esc 关闭（填写的内容会保留）")
                         .font(.system(size: 11))
                         .foregroundStyle(.tertiary)
                     Spacer()
@@ -97,7 +107,11 @@ private struct TaskCreateCard: View {
             // 菜单里的 ⌘↩ 也是「开始专注」，弹窗打开时让它改为创建
             store.submitDraft = create
         }
-        .onDisappear { store.submitDraft = nil }
+        .onDisappear {
+            store.submitDraft = nil
+            // 不管是 Esc、点取消还是点外面，没创建就把填写的内容留着
+            if !didCreate { store.keepUnsaved(task) }
+        }
         // 改时间时，日历上的虚线草稿块跟着移动
         .onChange(of: task) { _, task in
             guard store.draft != nil else { return }
@@ -111,12 +125,22 @@ private struct TaskCreateCard: View {
         var snapshot = task
         snapshot.title = snapshot.title.trimmingCharacters(in: .whitespacesAndNewlines)
         let created = taskStore.create(snapshot)
+        didCreate = true
+        store.unsavedDraft = nil
         store.draft = nil
         store.select(created.id)
     }
 
     private func cancel() {
         store.draft = nil
+    }
+
+    /// 不要恢复的内容：清空填写项，时间保留
+    private func clearRestored() {
+        task = TaskSnapshot(title: "", start: task.start, end: task.end, isAllDay: task.isAllDay)
+        isRestored = false
+        store.unsavedDraft = nil
+        isTitleFocused = true
     }
 
     /// 点弹窗外面：写了标题就保留（和 Notion 一样），否则当作取消

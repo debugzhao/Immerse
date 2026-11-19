@@ -658,3 +658,12 @@ IMMERSE_SNAPSHOT=/tmp/shot.png build/DerivedData/Build/Products/Debug/Immerse.ap
 | 编辑辅助 | 回车续写 `-` / `1.` / `- [ ]` / `>`，空项回车结束列表；⌘B / ⌘I 包裹选中文字；点击 `[ ]` 切换勾选（走 insertText，可撤销） |
 | 截图 | `IMMERSE_NOTES=<文字>`（配合 `IMMERSE_EDIT`，`\n` 换行） |
 
+### 14.x 迭代：草稿保留、进度提醒、每日复盘、时钟倒计时
+
+| 功能 | 实现 | 限制 |
+|---|---|---|
+| 新建内容保留 | 新建弹窗消失时（Esc / 取消 / 点外面）没创建就存进 `CalendarStore.unsavedDraft`；下次打开恢复，时间以新选的为准（`⌘N` 连时间一起恢复）；顶栏可「清空」 | 只保存在内存里，退出 App 后丢失 |
+| 进度提醒 | `FocusEngine` 按「剩余专注时长」推算各百分比的时刻，交给系统定时通知；暂停时取消、继续 / 延长 / 恢复时重排；已经过了的百分比记在 `notifiedMilestones`，延长后不重复 | 勿扰开启时，需要把 Immerse 加入勿扰「允许的 App」才会弹出（time-sensitive 通知需要付费开发者证书） |
+| 每日复盘 | `DailyReviewScheduler` 用 `UNCalendarNotificationTrigger` 安排下一次提醒（默认 21:00）；任务变动、设置变动、每 30 分钟、睡眠唤醒都会重排，保证内容最新；内容由 `DailyReview.content` 纯函数生成 | App 很久没开时内容可能过期（以最后一次安排时为准） |
+| 时钟倒计时 | 「时钟」无公开 API，用快捷指令：`shortcuts run "Immerse 开始计时" --input-path <分钟数.txt>` →「从输入中获取数字」→「开始计时器」 | 暂停 / 提前结束不会同步到「时钟」 |
+

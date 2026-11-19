@@ -73,5 +73,6 @@ extension View {
             .environment(environment.focusEngine)
             .environment(environment.settings)
             .environment(environment.shortcutsDND)
+            .environment(environment.clockTimer)
     }
 }

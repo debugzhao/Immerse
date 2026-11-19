@@ -11,6 +11,15 @@ enum DebugFlags {
         #endif
     }
 
+    /// IMMERSE_SETTINGS=1：截图时打开设置窗口
+    static var openSettings: Bool {
+        #if DEBUG
+        ProcessInfo.processInfo.environment["IMMERSE_SETTINGS"] != nil
+        #else
+        false
+        #endif
+    }
+
     /// IMMERSE_ONBOARDING=1：截图时强制显示首次引导
     static var forceOnboarding: Bool {
         #if DEBUG
@@ -66,10 +75,15 @@ enum DebugSnapshot {
             environment.calendarStore.reveal(task)
             environment.calendarStore.openEditor(task.id)
         }
+        // IMMERSE_UNSAVED=<标题>：模拟上次没保存的新建内容（配合 IMMERSE_CREATE）
+        if let title = env["IMMERSE_UNSAVED"] {
+            environment.calendarStore.unsavedDraft = TaskSnapshot(title: title, start: .now, end: nil, isAllDay: false,
+                                                                  priority: .important, notes: "- [ ] 列提纲\n- [ ] 写初稿")
+        }
         // IMMERSE_CREATE=1：打开新建弹窗（同 ⌘N）
         if env["IMMERSE_CREATE"] != nil {
             let interval = environment.calendarStore.defaultNewEventInterval()
-            environment.calendarStore.draft = DraftEvent(start: interval.start, end: interval.end)
+            environment.calendarStore.draft = DraftEvent(start: interval.start, end: interval.end, usesDefaultTime: true)
         }
         if let keyword = env["IMMERSE_SEARCH"] {
             environment.calendarStore.searchText = keyword
@@ -92,6 +106,8 @@ enum DebugSnapshot {
         if env["IMMERSE_STATS"] != nil {
             statsRequested = true
         }
+        // IMMERSE_SETTINGS=1：截设置窗口（提醒页）
+        let settingsRequested = DebugFlags.openSettings
         // IMMERSE_PALETTE=<输入内容>：打开 ⌘K 命令面板（输入内容只能截到空面板，用于看样式）
         if env["IMMERSE_PALETTE"] != nil {
             environment.calendarStore.isCommandPalettePresented = true
@@ -117,8 +133,10 @@ enum DebugSnapshot {
         Task { @MainActor in
             // 等窗口布局、滚动定位、动画都完成
             try? await Task.sleep(for: .seconds(2.5))
-            let candidates = NSApp.windows.filter { $0.isVisible && $0.contentView != nil && $0.frame.width > 600 }
-            let preferred = statsRequested ? candidates.first { $0.title == "专注统计" } : candidates.first { $0.title != "专注统计" }
+            let candidates = NSApp.windows.filter { $0.isVisible && $0.contentView != nil && $0.frame.width > 500 }
+            let preferred = settingsRequested ? candidates.first { $0.title == "提醒" }
+                : statsRequested ? candidates.first { $0.title == "专注统计" }
+                : candidates.first { $0.title != "专注统计" && $0.frame.width > 600 }
             guard let mainWindow = preferred ?? candidates.first else {
                 exit(0)
             }

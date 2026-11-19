@@ -36,6 +36,12 @@ final class FocusEngine {
     @ObservationIgnored private let notifier: FocusNotifying
     @ObservationIgnored private let dnd: DoNotDisturbServicing
     @ObservationIgnored private let clock: () -> Date
+    /// 进度提醒的百分比（全局设置，比如 [50, 80]）
+    @ObservationIgnored private let progressMilestones: () -> [Int]
+    /// 本次专注已经提醒过的进度，延长后不再重复提醒
+    @ObservationIgnored private var notifiedMilestones: Set<Int> = []
+    /// 一次专注开始后的回调（用来在「时钟」里开倒计时）
+    @ObservationIgnored var onStarted: ((FocusSessionState) -> Void)?
     @ObservationIgnored private let logger = Logger(subsystem: "com.debugzhao.immerse", category: "Focus")
     @ObservationIgnored private var ticker: Task<Void, Never>?
     @ObservationIgnored private var activity: NSObjectProtocol?
@@ -45,12 +51,14 @@ final class FocusEngine {
     static let extensionSeconds = 15 * 60
 
     init(taskStore: TaskStore, repository: FocusSessionRepository, notifier: FocusNotifying,
-         dnd: DoNotDisturbServicing, clock: @escaping () -> Date = { .now }) {
+         dnd: DoNotDisturbServicing, clock: @escaping () -> Date = { .now },
+         progressMilestones: @escaping () -> [Int] = { [] }) {
         self.taskStore = taskStore
         self.repository = repository
         self.notifier = notifier
         self.dnd = dnd
         self.clock = clock
+        self.progressMilestones = progressMilestones
         self.now = clock()
     }
 
@@ -107,6 +115,7 @@ final class FocusEngine {
         phase = .running
         now = startedAt
         timeUpAt = nil
+        notifiedMilestones = []
         taskStore.setStatusWithoutUndo(.inProgress, for: task.id)
 
         Task {
@@ -115,6 +124,7 @@ final class FocusEngine {
         }
         setDoNotDisturb(true)
         beginTicking()
+        onStarted?(state)
     }
 
     // MARK: - 暂停 / 继续 / 延长
@@ -134,6 +144,7 @@ final class FocusEngine {
         phase = .paused
         persist(state)
         notifier.cancelBackup()
+        notifier.cancelProgress()
     }
 
     func resume() {
@@ -203,6 +214,7 @@ final class FocusEngine {
         isImmersivePresented = false
         stopTicking()
         notifier.cancelBackup()
+        notifier.cancelProgress()
         // 时间到时已经关过勿扰了
         if !wasTimeUp { setDoNotDisturb(false) }
     }
@@ -212,13 +224,20 @@ final class FocusEngine {
     /// 每秒调用；睡眠唤醒后也会立即调用一次
     func tick() {
         now = clock()
-        guard phase == .running, let session, session.remaining(at: now) <= 0 else { return }
+        guard phase == .running, let session else { return }
+        // 记下已经过了的进度点（通知由系统按时发出，这里只做记录）
+        let percent = session.progress(at: now) * 100
+        for milestone in progressMilestones() where Double(milestone) <= percent {
+            notifiedMilestones.insert(milestone)
+        }
+        guard session.remaining(at: now) <= 0 else { return }
         handleTimeUp(at: session.plannedEnd)
     }
 
     private func handleTimeUp(at moment: Date) {
         guard let session else { return }
         phase = .timeUp
+        notifier.cancelProgress()
         timeUpAt = min(moment, clock())
         stopTicking()
         let title = session.taskTitle
@@ -295,10 +314,28 @@ final class FocusEngine {
 
     // MARK: - 私有
 
+    /// 重新安排「时间到」兜底通知和进度提醒（开始、继续、延长、恢复时调用）
     private func rescheduleBackup() {
         notifier.cancelBackup()
-        guard phase == .running, let session, let end = session.expectedEnd(at: clock()) else { return }
+        notifier.cancelProgress()
+        let current = clock()
+        guard phase == .running, let session, let end = session.expectedEnd(at: current) else { return }
         notifier.scheduleBackup(at: end, title: session.taskTitle)
+
+        var reminders: [FocusProgressReminder] = []
+        for percent in Set(progressMilestones()).sorted() where (1..<100).contains(percent) {
+            guard !notifiedMilestones.contains(percent),
+                  let date = session.moment(atProgress: Double(percent) / 100, now: current) else { continue }
+            if date <= current {
+                // 已经过了（比如重启 App 恢复时）：不补发
+                notifiedMilestones.insert(percent)
+                continue
+            }
+            reminders.append(FocusProgressReminder(
+                percent: percent, date: date,
+                remainingSeconds: session.plannedSeconds * (100 - percent) / 100))
+        }
+        if !reminders.isEmpty { notifier.scheduleProgress(reminders, title: session.taskTitle) }
     }
 
     @discardableResult

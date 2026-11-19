@@ -36,6 +36,8 @@ struct DraftEvent: Equatable {
     var start: Date
     var end: Date
     var isAllDay: Bool = false
+    /// ⌘N 给的默认时间（不是用户在日历上选的）：恢复未保存内容时连时间一起恢复
+    var usesDefaultTime = false
 }
 
 /// 日历的浏览状态：看哪一天、什么视图、选中了哪个任务、筛选条件。
@@ -56,6 +58,8 @@ final class CalendarStore {
     var draft: DraftEvent?
     /// 正在拖动的任务，用来把所在列提到最上层，避免拖到相邻列时被盖住
     var draggingTaskID: UUID?
+    /// 新建弹窗没保存就关掉时留下的内容，下次打开新建弹窗时恢复
+    var unsavedDraft: TaskSnapshot?
     /// 日程弹窗正在编辑的任务
     var editingTaskID: UUID?
     /// 新建弹窗打开时，菜单里的 ⌘↩ 改为「创建」
@@ -191,6 +195,24 @@ final class CalendarStore {
 
     // MARK: - 新建
 
+    /// 打开新建弹窗时的初始内容：有上次没保存的内容就恢复它。
+    /// 时间以这次在日历上选的为准；⌘N（默认时间）时连上次的时间一起恢复。
+    func makeNewTask(for draft: DraftEvent) -> (task: TaskSnapshot, isRestored: Bool) {
+        let fresh = TaskSnapshot(title: "", start: draft.start, end: draft.isAllDay ? nil : draft.end, isAllDay: draft.isAllDay)
+        guard var saved = unsavedDraft else { return (fresh, false) }
+        if !draft.usesDefaultTime {
+            saved.start = fresh.start
+            saved.end = fresh.end
+            saved.isAllDay = fresh.isAllDay
+        }
+        return (saved, true)
+    }
+
+    /// 新建弹窗关掉但没创建：有填写内容就留着，下次恢复；什么都没填就丢掉
+    func keepUnsaved(_ task: TaskSnapshot) {
+        unsavedDraft = task.hasUserContent ? task : nil
+    }
+
     /// ⌘N 新建日程的默认时间：看今天就取下一个整点，否则取那天 9:00；时长 1 小时
     func defaultNewEventInterval(now: Date = .now) -> DateInterval {
         let base: Date
@@ -201,5 +223,17 @@ final class CalendarStore {
             base = calendar.date(bySettingHour: 9, minute: 0, second: 0, of: anchorDate) ?? anchorDate
         }
         return DateInterval(start: base, duration: 3600)
+    }
+}
+
+extension TaskSnapshot {
+    /// 新建表单里用户有没有填过东西（时间不算，时间来自日历上的选择）
+    var hasUserContent: Bool {
+        !title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            || !notes.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            || !(place ?? "").isEmpty
+            || priority != .normal
+            || status != .todo
+            || plannedMinutes != nil
     }
 }

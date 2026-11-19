@@ -86,7 +86,7 @@ struct ImmerseCommands: Commands {
         calendarStore.select(nil)
         calendarStore.anchorDate = interval.start
         calendarStore.scrollRequest = ScrollRequest(hour: max(hour - 1, 0))
-        calendarStore.draft = DraftEvent(start: interval.start, end: interval.end)
+        calendarStore.draft = DraftEvent(start: interval.start, end: interval.end, usesDefaultTime: true)
     }
 
     private func importNotion() {

@@ -32,9 +32,16 @@ enum ShortcutsRunner {
             .filter { !$0.isEmpty }
     }
 
-    /// 运行一个快捷指令
-    static func run(_ name: String, timeout: Duration = .seconds(5)) async throws {
-        _ = try await execute(["run", name], timeout: timeout)
+    /// 运行一个快捷指令。input 会写进临时文本文件，作为快捷指令的输入
+    static func run(_ name: String, input: String? = nil, timeout: Duration = .seconds(5)) async throws {
+        guard let input else {
+            _ = try await execute(["run", name], timeout: timeout)
+            return
+        }
+        let file = FileManager.default.temporaryDirectory.appendingPathComponent("immerse-input-\(UUID().uuidString).txt")
+        try input.write(to: file, atomically: true, encoding: .utf8)
+        defer { try? FileManager.default.removeItem(at: file) }
+        _ = try await execute(["run", name, "--input-path", file.path], timeout: timeout)
     }
 
     /// 在后台执行，超时或任务被取消时终止进程
