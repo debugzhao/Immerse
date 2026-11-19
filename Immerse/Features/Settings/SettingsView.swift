@@ -152,7 +152,7 @@ private struct AboutTab: View {
     var body: some View {
         @Bindable var updater = updater
         VStack(spacing: 10) {
-            Image(nsImage: NSApp.applicationIconImage)
+            Image(nsImage: AppIcon.image)
                 .resizable()
                 .frame(width: 64, height: 64)
             Text("沉浸日程").font(.system(size: 20, weight: .semibold))

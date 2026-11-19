@@ -8,7 +8,7 @@ struct UpdateSheet: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             HStack(spacing: 14) {
-                Image(nsImage: NSApp.applicationIconImage)
+                Image(nsImage: AppIcon.image)
                     .resizable()
                     .frame(width: 56, height: 56)
                 VStack(alignment: .leading, spacing: 4) {

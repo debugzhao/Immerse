@@ -119,7 +119,7 @@ struct OnboardingView: View {
     private var welcome: some View {
         VStack(alignment: .leading, spacing: 22) {
             HStack(spacing: 16) {
-                Image(nsImage: NSApp.applicationIconImage)
+                Image(nsImage: AppIcon.image)
                     .resizable()
                     .frame(width: 72, height: 72)
                 VStack(alignment: .leading, spacing: 6) {

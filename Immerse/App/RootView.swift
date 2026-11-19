@@ -66,6 +66,7 @@ struct RootView: View {
             ImportPreviewView(preview: preview)
         }
         .onAppear {
+            AppIcon.install()
             if DebugFlags.openStats { openWindow(id: "stats") }
             if DebugFlags.openSettings { openSettings() }
         }
