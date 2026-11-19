@@ -55,8 +55,10 @@ xcodebuild -project Immerse.xcodeproj -scheme Immerse \
 
 ## 4. 提交并 push
 
+`Immerse/Resources/Info.plist` 由 xcodegen 根据 `project.yml` 生成但也纳入了 git，第 3 步跑过 `xcodegen generate` 后它的版本号会同步变化，要和 `project.yml` 一起提交：
+
 ```bash
-git add project.yml   # 以及其他本次改动
+git add project.yml Immerse/Resources/Info.plist
 git commit -m "chore(release): bump version to <版本号>"
 git push
 ```
