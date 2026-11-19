@@ -19,7 +19,7 @@ struct TimeGridCalendarView: View {
     private var calendar: Calendar { calendarStore.calendar }
 
     var body: some View {
-        let tasks = taskStore.tasks(in: visibleInterval).filter(calendarStore.passesFilter)
+        let tasks = taskStore.tasks(in: visibleInterval)
         let allDay = tasks.filter(\.isAllDay)
         let timed = tasks.filter { !$0.isAllDay }
         // One query for the whole visible range; each column filters its own day (was one query per column)

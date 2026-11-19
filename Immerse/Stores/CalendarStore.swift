@@ -64,9 +64,7 @@ final class CalendarStore {
     var selectedTaskID: UUID?
     let calendar: Calendar
 
-    // Filters and search
-    var priorityFilter: Set<Priority> = Set(Priority.allCases)
-    var statusFilter: Set<TaskStatus> = Set(TaskStatus.allCases)
+    // Search
     var searchText = ""
 
     /// Draft being created by dragging
@@ -212,29 +210,6 @@ final class CalendarStore {
             // Scroll to one hour before the event starts so it appears in the upper part of the viewport
             scrollRequest = ScrollRequest(hour: max(calendar.component(.hour, from: task.start) - 1, 0))
         }
-    }
-
-    // MARK: - Filters
-
-    var isFiltering: Bool {
-        priorityFilter.count < Priority.allCases.count || statusFilter.count < TaskStatus.allCases.count
-    }
-
-    func passesFilter(_ task: TaskSnapshot) -> Bool {
-        priorityFilter.contains(task.priority) && statusFilter.contains(task.status)
-    }
-
-    func toggle(_ priority: Priority) {
-        if priorityFilter.contains(priority) { priorityFilter.remove(priority) } else { priorityFilter.insert(priority) }
-    }
-
-    func toggle(_ status: TaskStatus) {
-        if statusFilter.contains(status) { statusFilter.remove(status) } else { statusFilter.insert(status) }
-    }
-
-    func resetFilters() {
-        priorityFilter = Set(Priority.allCases)
-        statusFilter = Set(TaskStatus.allCases)
     }
 
     // MARK: - Create

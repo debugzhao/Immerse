@@ -48,7 +48,6 @@ enum DebugFlags {
 /// - IMMERSE_SELECT=<title keyword>: select the first matching event (opens the detail panel)
 /// - IMMERSE_SEARCH=<keyword>: type into the search field
 /// - IMMERSE_MODE=day|week|month: calendar view
-/// - IMMERSE_FILTER=urgent: show urgent only
 /// - IMMERSE_EDIT=<title keyword> / IMMERSE_CREATE=1: open the event sheet
 ///
 /// Note: the frosted glass that shows the desktop through (behindWindow) renders as a solid color in screenshots; the real effect is as seen on screen.
@@ -65,9 +64,6 @@ enum DebugSnapshot {
         }
         if let mode = env["IMMERSE_MODE"].flatMap(CalendarMode.init(rawValue:)) {
             environment.calendarStore.mode = mode
-        }
-        if env["IMMERSE_FILTER"] == "urgent" {
-            environment.calendarStore.priorityFilter = [.urgent]
         }
         if let keyword = env["IMMERSE_SELECT"],
            let task = environment.taskStore.search(keyword).first {

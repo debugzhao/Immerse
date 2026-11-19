@@ -42,7 +42,7 @@ struct MonthView: View {
     private func visibleTasks(_ days: [Date]) -> [TaskSnapshot] {
         guard let first = days.first, let last = days.last,
               let end = store.calendar.date(byAdding: .day, value: 1, to: last) else { return [] }
-        return taskStore.tasks(in: DateInterval(start: first, end: end)).filter(store.passesFilter)
+        return taskStore.tasks(in: DateInterval(start: first, end: end))
     }
 
     private var weekdayHeader: some View {
