@@ -1,3 +1,3 @@
-/* App 名称（Dock、访达、菜单栏显示的名字） */
+/* App name shown in the Dock, Finder and the menu bar */
 "CFBundleName" = "沉浸日程";
 "CFBundleDisplayName" = "沉浸日程";
