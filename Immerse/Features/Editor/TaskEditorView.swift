@@ -768,7 +768,7 @@ private struct NotesEditor: View {
         MarkdownEditor(text: $text)
             .overlay(alignment: .topLeading) {
                 if text.isEmpty {
-                    Text("添加备注…  支持 Markdown：# 标题、**粗体**、- 列表、- [ ] 待办")
+                    Text("添加备注…  输入 / 插入标题、待办、列表等，粘贴链接自动识别")
                         .font(.system(size: 14))
                         .foregroundStyle(.tertiary)
                         .padding(.top, MarkdownEditor.topInset)
