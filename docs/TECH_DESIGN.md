@@ -138,8 +138,7 @@ schedule-management/
 │   │   ├── Sidebar/
 │   │   │   ├── SidebarView.swift
 │   │   │   ├── MiniMonthView.swift
-│   │   │   ├── TodayTaskList.swift
-│   │   │   └── FilterView.swift
+│   │   │   └── TodayTaskList.swift
 │   │   ├── Editor/
 │   │   │   └── TaskEditorView.swift
 │   │   ├── CommandPalette/
@@ -635,7 +634,7 @@ struct GlassSurfaceModifier: ViewModifier {
 IMMERSE_SNAPSHOT=/tmp/shot.png build/DerivedData/Build/Products/Debug/Immerse.app/Contents/MacOS/Immerse
 ```
 
-可选环境变量：`IMMERSE_APPEARANCE=dark`、`IMMERSE_MODE=day|week|month`、`IMMERSE_SELECT=<关键字>`、`IMMERSE_SEARCH=<关键字>`、`IMMERSE_FOCUS=<关键字>[,秒数]`、`IMMERSE_IMMERSIVE=1`、`IMMERSE_PALETTE=1`、`IMMERSE_STATS=1`、`IMMERSE_ONBOARDING=1`、`IMMERSE_FILTER=urgent`。
+可选环境变量：`IMMERSE_APPEARANCE=dark`、`IMMERSE_MODE=day|week|month`、`IMMERSE_SELECT=<关键字>`、`IMMERSE_SEARCH=<关键字>`、`IMMERSE_FOCUS=<关键字>[,秒数]`、`IMMERSE_IMMERSIVE=1`、`IMMERSE_PALETTE=1`、`IMMERSE_STATS=1`、`IMMERSE_ONBOARDING=1`。
 
 ### 14.x 迭代：Notion 风格日程弹窗
 

@@ -17,7 +17,7 @@ A macOS calendar app for scheduling and deep focus: manage your events on a cale
 | Module | Features |
 |---|---|
 | 📅 Calendar | Day / week / month views with an animated zoom transition between them; drag-select or double-click to create, drag to move, drag an edge to resize; overlapping events are laid out side by side; month cells show up to 3 events and collapse the rest into "+N" |
-| 🗂 Sidebar | Mini month calendar for quick navigation; a Today list sorted by priority and time, where clicking the circle completes a task; filter calendar events by priority and status |
+| 🗂 Sidebar | Mini month calendar for quick navigation; below it, a Today / Inbox / Goals switch shows one panel at a time: Today lists tasks by priority and time (click the circle to complete), Inbox captures ideas you can drag onto the calendar, and Goals show a progress ring with days left. A focus summary at the bottom opens the stats window |
 | ✏️ Events | Priority (urgent / important / normal), status, location and focus duration; double-click an event to edit it in a Notion-style modal; unsaved new-event drafts are kept; ⌘Z to undo |
 | 📝 Notes | Lightweight Markdown: headings, bold / italic, code, lists, quotes and `- [ ]` to-dos (click to check); Return continues a list, ⌘B / ⌘I |
 | 🔍 Search | ⌘F searches titles and notes; click a result to jump to its date and select it |
