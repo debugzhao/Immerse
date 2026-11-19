@@ -36,6 +36,18 @@
 | `⌃⌘F` | 进入沉浸模式 |
 | `⇧⌘I` | 导入 Notion CSV |
 
+## 下载安装
+
+1. 到 [Releases](https://github.com/debugzhao/schedule-management/releases/latest) 下载 `Immerse-x.y.z.dmg`（需要 macOS 14+，Apple 芯片和 Intel 都支持）
+2. 打开 DMG，把 `Immerse` 拖进「应用程序」
+3. 首次打开：App 没有经过 Apple 公证，直接双击会提示「无法验证开发者」。在「应用程序」里**右键 Immerse → 打开 → 打开**即可，之后正常双击启动
+
+如果提示「已损坏，无法打开」，在终端执行一次：
+
+```bash
+xattr -dr com.apple.quarantine /Applications/Immerse.app
+```
+
 ## 编译运行
 
 环境要求：macOS 14+、Xcode 16.2、XcodeGen。
@@ -46,6 +58,12 @@ scripts/build.sh
 
 ```bash
 open build/DerivedData/Build/Products/Debug/Immerse.app
+```
+
+打包 DMG（Release 通用包，输出到 `dist/`）：
+
+```bash
+scripts/package-dmg.sh
 ```
 
 跑单元测试：
