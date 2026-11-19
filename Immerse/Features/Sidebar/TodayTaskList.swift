@@ -6,7 +6,7 @@ struct TodayTaskList: View {
     @Environment(CalendarStore.self) private var store
 
     var body: some View {
-        let tasks = todayTasks
+        let tasks = Self.tasks(taskStore: taskStore, calendar: store.calendar)
         VStack(alignment: .leading, spacing: 8) {
             SidebarSectionHeader(
                 title: "今天",
@@ -33,11 +33,11 @@ struct TodayTaskList: View {
         }
     }
 
-    private var todayTasks: [TaskSnapshot] {
-        let calendar = store.calendar
+    /// Today's tasks; completed ones sink to the bottom (shared with the tab picker's count)
+    @MainActor
+    static func tasks(taskStore: TaskStore, calendar: Calendar) -> [TaskSnapshot] {
         guard let today = calendar.dateInterval(of: .day, for: .now) else { return [] }
         return taskStore.tasks(in: today).sorted { a, b in
-            // Completed tasks sink to the bottom
             if (a.status == .done) != (b.status == .done) { return b.status == .done }
             if a.priority != b.priority { return a.priority < b.priority }
             return a.start < b.start
@@ -80,11 +80,7 @@ private struct TodayTaskRow: View {
         }
         .padding(.horizontal, 8)
         .padding(.vertical, 5)
-        .background {
-            RoundedRectangle(cornerRadius: 6, style: .continuous)
-                .fill(isSelected ? Color.accentColor.opacity(0.16) : .clear)
-        }
-        .contentShape(Rectangle())
+        .sidebarRowBackground(isSelected: isSelected)
     }
 
     private var timeLabel: String {
