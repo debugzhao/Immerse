@@ -57,7 +57,12 @@ enum DebugSnapshot {
         }
         // IMMERSE_EDIT=<标题关键字>：打开日程弹窗（编辑）
         if let keyword = env["IMMERSE_EDIT"],
-           let task = environment.taskStore.search(keyword).first {
+           var task = environment.taskStore.search(keyword).first {
+            // IMMERSE_NOTES=<文字>：先写入备注（\n 换行），用来看 Markdown 高亮
+            if let notes = env["IMMERSE_NOTES"] {
+                task.notes = notes.replacingOccurrences(of: "\\n", with: "\n")
+                environment.taskStore.update(task)
+            }
             environment.calendarStore.reveal(task)
             environment.calendarStore.openEditor(task.id)
         }

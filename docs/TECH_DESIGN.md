@@ -649,3 +649,12 @@ IMMERSE_SNAPSHOT=/tmp/shot.png build/DerivedData/Build/Products/Debug/Immerse.ap
 | 交互约束 | 弹窗打开时日历的单键快捷键（Space、⌫、D/W/M…）全部让路；`⌘⌫` 在文本框里改为删除到行首 |
 | 截图 | `IMMERSE_EDIT=<关键字>`、`IMMERSE_CREATE=1` |
 
+### 14.x 迭代：时间选择与 Markdown 备注
+
+| 项 | 说明 |
+|---|---|
+| 时间 | 去掉日期选择器，日期跟随日历上选的那天（只展示）；开始 / 结束是两个大按钮，点开是 15 分钟刻度的时间列表（32pt 行高、自动滚到当前值）；结束列表每项附带时长，顶部有 30 分钟 / 1 / 1.5 / 2 小时快捷项；跨天显示「次日」。候选项由 `TimeSlots` 纯函数生成 |
+| 备注 | `MarkdownEditor`（NSTextView + TextKit 1）边写边高亮，标记符号保留但变淡；`MarkdownStyler.spans` 纯函数解析，便于测试。输入法组字时不重排样式，避免打断候选 |
+| 编辑辅助 | 回车续写 `-` / `1.` / `- [ ]` / `>`，空项回车结束列表；⌘B / ⌘I 包裹选中文字；点击 `[ ]` 切换勾选（走 insertText，可撤销） |
+| 截图 | `IMMERSE_NOTES=<文字>`（配合 `IMMERSE_EDIT`，`\n` 换行） |
+

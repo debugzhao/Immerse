@@ -270,8 +270,8 @@ private struct TaskEditorForm: View {
                 .padding(.bottom, 14)
 
             VStack(spacing: 2) {
-                PropertyRow(icon: "calendar", title: "日期") {
-                    DateProperty(task: $task)
+                PropertyRow(icon: "clock", title: "时间") {
+                    TimeProperty(task: $task)
                 }
                 PropertyRow(icon: "flag", title: "优先级") {
                     ChipPicker(options: Priority.allCases, selection: $task.priority,
@@ -353,131 +353,70 @@ private struct HoverButtonStyle: ButtonStyle {
     }
 }
 
-// MARK: - 日期
+// MARK: - 时间
 
-private struct DateProperty: View {
+/// 时间行：日期只展示（跟随日历上选的那天），开始 / 结束时间用大按钮 + 15 分钟刻度列表选择
+private struct TimeProperty: View {
     @Binding var task: TaskSnapshot
     @Environment(CalendarStore.self) private var store
-    @State private var isPresented = false
 
     private var calendar: Calendar { store.calendar }
 
     var body: some View {
-        Button { isPresented = true } label: {
-            Text(summary)
+        HStack(spacing: 10) {
+            Text(dayText)
                 .font(.system(size: 13))
-                .monospacedDigit()
-                .foregroundStyle(.primary)
-        }
-        .buttonStyle(HoverButtonStyle())
-        .padding(.leading, -4)
-        .popover(isPresented: $isPresented, arrowEdge: .bottom) {
-            editor
-        }
-    }
-
-    /// 例如「11月18日 周三  16:00 → 17:00」「11月18日 → 11月20日」
-    private var summary: String {
-        let interval = task.displayInterval(in: calendar)
-        if task.isAllDay {
-            let last = interval.end.addingTimeInterval(-1)
-            return calendar.isDate(task.start, inSameDayAs: last)
-                ? "\(day(task.start)) \(TimeText.weekday(task.start, calendar: calendar)) · 全天"
-                : "\(day(task.start)) → \(day(last)) · 全天"
-        }
-        let end = interval.end
-        if calendar.isDate(task.start, inSameDayAs: end) || end == calendar.date(byAdding: .day, value: 1, to: calendar.startOfDay(for: task.start)) {
-            return "\(day(task.start)) \(TimeText.weekday(task.start, calendar: calendar))   \(TimeText.hhmm(task.start, calendar: calendar)) → \(TimeText.hhmm(end, calendar: calendar))"
-        }
-        return "\(day(task.start)) \(TimeText.hhmm(task.start, calendar: calendar)) → \(day(end)) \(TimeText.hhmm(end, calendar: calendar))"
-    }
-
-    private func day(_ date: Date) -> String {
-        let c = calendar.dateComponents([.year, .month, .day], from: date)
-        let month = "\(c.month ?? 0)月\(c.day ?? 0)日"
-        return c.year == calendar.component(.year, from: .now) ? month : "\(c.year ?? 0)年\(month)"
-    }
-
-    private var editor: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            DatePicker("", selection: dayBinding, displayedComponents: .date)
-                .datePickerStyle(.graphical)
-                .labelsHidden()
-                .environment(\.calendar, calendar)
-
-            Divider()
-
-            Toggle("全天", isOn: allDayBinding)
-                .toggleStyle(.switch)
-                .controlSize(.small)
+                .foregroundStyle(.secondary)
 
             if task.isAllDay {
-                field("结束日期") {
-                    DatePicker("", selection: allDayEndBinding, in: task.start..., displayedComponents: .date)
-                }
+                Text("全天")
+                    .font(.system(size: 13, weight: .medium))
             } else {
-                field("开始") {
-                    DatePicker("", selection: startBinding, displayedComponents: .hourAndMinute)
-                }
-                field("结束") {
-                    DatePicker("", selection: timedEndBinding,
-                               in: task.start.addingTimeInterval(EventEditing.minimumDuration)...,
-                               displayedComponents: [.date, .hourAndMinute])
-                }
+                let interval = task.displayInterval(in: calendar)
+                TimeSlotButton(
+                    title: TimeText.hhmm(task.start, calendar: calendar),
+                    options: TimeSlots.starts(on: task.start, calendar: calendar),
+                    selected: task.start,
+                    detail: { _ in nil },
+                    onPick: { task = EventEditing.movingStart(of: task, to: $0, calendar: calendar) }
+                )
+                Image(systemName: "arrow.right")
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(.tertiary)
+                TimeSlotButton(
+                    title: endTitle(interval.end),
+                    options: TimeSlots.ends(after: task.start, calendar: calendar),
+                    selected: interval.end,
+                    presets: TimeSlots.durationPresets,
+                    detail: { TimeSlots.durationText(from: task.start, to: $0) },
+                    onPick: { task.end = $0 },
+                    onPreset: { task.end = task.start.addingTimeInterval(TimeInterval($0 * 60)) }
+                )
+                Text(TimeSlots.durationText(from: interval.start, to: interval.end))
+                    .font(.system(size: 12))
+                    .foregroundStyle(.tertiary)
             }
-        }
-        .datePickerStyle(.field)
-        .padding(14)
-        .frame(width: 260)
-    }
 
-    private func field<Content: View>(_ title: String, @ViewBuilder content: () -> Content) -> some View {
-        HStack {
-            Text(title)
+            Spacer(minLength: 8)
+
+            Toggle("全天", isOn: allDayBinding)
+                .toggleStyle(.checkbox)
                 .font(.system(size: 12))
                 .foregroundStyle(.secondary)
-                .frame(width: 56, alignment: .leading)
-            content().labelsHidden()
-            Spacer(minLength: 0)
         }
     }
 
-    // MARK: 绑定
-
-    /// 日历里选日期：只换日期，保留原来的时刻和时长
-    private var dayBinding: Binding<Date> {
-        Binding(
-            get: { task.start },
-            set: { newDay in
-                let time = calendar.dateComponents([.hour, .minute], from: task.start)
-                let target = calendar.date(bySettingHour: time.hour ?? 0, minute: time.minute ?? 0, second: 0, of: newDay) ?? newDay
-                task = EventEditing.movingStart(of: task, to: target, calendar: calendar)
-            }
-        )
+    /// 「11月18日 周三」，不是今年时带年份
+    private var dayText: String {
+        let c = calendar.dateComponents([.year, .month, .day], from: task.start)
+        let day = "\(c.month ?? 0)月\(c.day ?? 0)日 \(TimeText.weekday(task.start, calendar: calendar))"
+        return c.year == calendar.component(.year, from: .now) ? day : "\(c.year ?? 0)年\(day)"
     }
 
-    /// 改开始时刻：整体平移，时长不变
-    private var startBinding: Binding<Date> {
-        Binding(
-            get: { task.start },
-            set: { task = EventEditing.movingStart(of: task, to: $0, calendar: calendar) }
-        )
-    }
-
-    private var timedEndBinding: Binding<Date> {
-        Binding(
-            get: { task.displayInterval(in: calendar).end },
-            set: { task.end = $0 }
-        )
-    }
-
-    private var allDayEndBinding: Binding<Date> {
-        Binding(
-            get: { task.end ?? task.start },
-            set: { newValue in
-                task.end = calendar.isDate(newValue, inSameDayAs: task.start) ? nil : newValue
-            }
-        )
+    private func endTitle(_ end: Date) -> String {
+        let text = TimeText.hhmm(end, calendar: calendar)
+        let days = calendar.dayOffset(from: task.start, to: end.addingTimeInterval(-1))
+        return days > 0 ? "\(text) 次日" : text
     }
 
     private var allDayBinding: Binding<Bool> {
@@ -498,6 +437,129 @@ private struct DateProperty: View {
                 task = updated
             }
         )
+    }
+}
+
+/// 大号的时间按钮，点开是可滚动的时间列表
+private struct TimeSlotButton: View {
+    let title: String
+    let options: [Date]
+    let selected: Date
+    var presets: [Int] = []
+    let detail: (Date) -> String?
+    let onPick: (Date) -> Void
+    var onPreset: (Int) -> Void = { _ in }
+
+    @Environment(CalendarStore.self) private var store
+    @State private var isPresented = false
+    @State private var isHovering = false
+
+    var body: some View {
+        Button { isPresented = true } label: {
+            Text(title)
+                .font(.system(size: 15, weight: .medium))
+                .monospacedDigit()
+                .foregroundStyle(.primary)
+                .padding(.horizontal, 10)
+                .padding(.vertical, 5)
+                .background(
+                    RoundedRectangle(cornerRadius: 7, style: .continuous)
+                        .fill(Color.primary.opacity(isPresented ? 0.12 : isHovering ? 0.09 : 0.055))
+                )
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .onHover { isHovering = $0 }
+        .popover(isPresented: $isPresented, arrowEdge: .bottom) {
+            list
+        }
+    }
+
+    private var list: some View {
+        VStack(spacing: 0) {
+            if !presets.isEmpty {
+                HStack(spacing: 6) {
+                    ForEach(presets, id: \.self) { minutes in
+                        Button {
+                            onPreset(minutes)
+                            isPresented = false
+                        } label: {
+                            Text(TimeSlots.durationText(minutes: minutes))
+                                .font(.system(size: 12, weight: .medium))
+                                .padding(.horizontal, 8)
+                                .padding(.vertical, 4)
+                                .background(Color.primary.opacity(0.07), in: Capsule())
+                                .contentShape(Capsule())
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+                .padding(10)
+                Divider()
+            }
+            ScrollViewReader { proxy in
+                ScrollView {
+                    LazyVStack(spacing: 1) {
+                        ForEach(options, id: \.self) { option in
+                            row(option)
+                                .id(option)
+                        }
+                    }
+                    .padding(6)
+                }
+                .onAppear {
+                    // 打开时把当前时间滚到中间
+                    let target = options.min { abs($0.timeIntervalSince(selected)) < abs($1.timeIntervalSince(selected)) }
+                    if let target { proxy.scrollTo(target, anchor: .center) }
+                }
+            }
+        }
+        .frame(width: presets.isEmpty ? 150 : 270, height: 320)
+    }
+
+    private func row(_ option: Date) -> some View {
+        let isSelected = abs(option.timeIntervalSince(selected)) < 60
+        let calendar = store.calendar
+        return Button {
+            onPick(option)
+            isPresented = false
+        } label: {
+            HStack {
+                Text(TimeText.hhmm(option, calendar: calendar))
+                    .font(.system(size: 14, weight: isSelected ? .semibold : .regular))
+                    .monospacedDigit()
+                if let detail = detail(option) {
+                    Text(detail)
+                        .font(.system(size: 12))
+                        .foregroundStyle(isSelected ? AnyShapeStyle(.white.opacity(0.8)) : AnyShapeStyle(.tertiary))
+                }
+                Spacer()
+            }
+            .foregroundStyle(isSelected ? AnyShapeStyle(.white) : AnyShapeStyle(.primary))
+            .padding(.horizontal, 10)
+            .frame(height: 30)
+            .background(
+                RoundedRectangle(cornerRadius: 6, style: .continuous)
+                    .fill(isSelected ? AnyShapeStyle(Color.accentColor) : AnyShapeStyle(.clear))
+            )
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(TimeRowButtonStyle(isSelected: isSelected))
+    }
+}
+
+/// 时间列表行：悬停时浅色高亮（选中行已经是强调色，不再叠加）
+private struct TimeRowButtonStyle: ButtonStyle {
+    let isSelected: Bool
+    @State private var isHovering = false
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .background(
+                RoundedRectangle(cornerRadius: 6, style: .continuous)
+                    .fill(Color.primary.opacity(!isSelected && isHovering ? 0.07 : 0))
+            )
+            .onHover { isHovering = $0 }
     }
 }
 
@@ -631,20 +693,16 @@ private struct NotesEditor: View {
     @Binding var text: String
 
     var body: some View {
-        TextEditor(text: $text)
-            .font(.system(size: 14))
-            .lineSpacing(3)
-            .scrollContentBackground(.hidden)
+        MarkdownEditor(text: $text)
             .overlay(alignment: .topLeading) {
                 if text.isEmpty {
-                    Text("添加备注…")
+                    Text("添加备注…  支持 Markdown：# 标题、**粗体**、- 列表、- [ ] 待办")
                         .font(.system(size: 14))
                         .foregroundStyle(.tertiary)
-                        .padding(.leading, 5)
+                        .padding(.top, MarkdownEditor.topInset)
                         .allowsHitTesting(false)
                 }
             }
             .frame(maxHeight: .infinity)
-            .padding(.horizontal, 1)
     }
 }
