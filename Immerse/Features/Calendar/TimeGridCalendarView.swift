@@ -23,7 +23,7 @@ struct TimeGridCalendarView: View {
         let allDay = tasks.filter(\.isAllDay)
         let timed = tasks.filter { !$0.isAllDay }
         // One query for the whole visible range; each column filters its own day (was one query per column)
-        let records = focusEngine.records(in: visibleInterval)
+        let records = FocusRecord.onCalendar(focusEngine.records(in: visibleInterval)) { taskStore.task(id: $0) != nil }
 
         VStack(spacing: 0) {
             DayHeaderRow(days: days)

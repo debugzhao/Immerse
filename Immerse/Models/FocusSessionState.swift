@@ -76,6 +76,16 @@ struct FocusRecord: Identifiable, Equatable, Sendable {
     /// Actual focused seconds (excluding pauses)
     let focusedSeconds: Int
     let reason: FocusEndReason
+
+    /// Records worth drawing on the calendar: only those whose event still exists.
+    /// Deleting an event nullifies `taskID`, so its focus strips would otherwise linger as orphan bars.
+    /// Stats deliberately keep every record, since the time was really spent.
+    static func onCalendar(_ records: [FocusRecord], taskExists: (UUID) -> Bool) -> [FocusRecord] {
+        records.filter { record in
+            guard let taskID = record.taskID else { return false }
+            return taskExists(taskID)
+        }
+    }
 }
 
 enum DurationText {
