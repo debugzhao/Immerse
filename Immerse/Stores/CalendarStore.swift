@@ -6,6 +6,15 @@ enum CalendarMode: String, CaseIterable, Identifiable, Sendable {
 
     var id: String { rawValue }
 
+    /// 0 = finest (day), 2 = coarsest (month)
+    var zoomLevel: Int {
+        switch self {
+        case .day: 0
+        case .week: 1
+        case .month: 2
+        }
+    }
+
     var title: String {
         switch self {
         case .day: "日"
@@ -45,7 +54,13 @@ struct DraftEvent: Equatable {
 @Observable
 final class CalendarStore {
     var anchorDate: Date
-    var mode: CalendarMode = .week
+    var mode: CalendarMode = .week {
+        didSet { if mode != oldValue { previousMode = oldValue } }
+    }
+    /// Mode before the last switch, used to pick the zoom direction of the transition
+    private(set) var previousMode: CalendarMode = .week
+    /// Top hour of the time grid when it was last scrolled, so switching day ↔ week keeps the position
+    @ObservationIgnored var lastScrollHour: Int?
     var selectedTaskID: UUID?
     let calendar: Calendar
 
@@ -73,7 +88,10 @@ final class CalendarStore {
     /// Reopened from Help → 重新查看引导
     var isOnboardingPresented = false
     /// Time grid scroll request: each newly assigned value triggers one scroll
-    var scrollRequest = ScrollRequest(hour: 8)
+    var scrollRequest = ScrollRequest(hour: 8) {
+        // An explicit scroll request (reveal, ⌘N) wins over the remembered position
+        didSet { lastScrollHour = nil }
+    }
     /// Notion import awaiting confirmation
     var pendingImport: ImportPreview?
 

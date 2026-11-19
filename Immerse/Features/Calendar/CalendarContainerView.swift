@@ -11,7 +11,14 @@ struct CalendarContainerView: View {
     var body: some View {
         @Bindable var store = store
 
-        content
+        // The toolbar is attached outside the single-key shortcut handlers below. If the search field sat inside them,
+        // onKeyPress would grab key presses before the input method and Chinese (pinyin) input would break.
+        calendarArea
+            .toolbar { toolbarContent(store: $store) }
+    }
+
+    private var calendarArea: some View {
+        modeTransitionContainer
             .overlay(alignment: .topTrailing) {
                 if !store.searchText.trimmingCharacters(in: .whitespaces).isEmpty {
                     SearchResultsView()
@@ -20,7 +27,6 @@ struct CalendarContainerView: View {
                 }
             }
             .animation(Motion.snappy, value: store.searchText.isEmpty)
-            .toolbar { toolbarContent(store: $store) }
             .focusable()
             .focusEffectDisabled()
             .focused($isCalendarFocused)
@@ -54,6 +60,22 @@ struct CalendarContainerView: View {
             .onKeyPress(characters: .letters, phases: .down) { press in
                 handleShortcut(press)
             }
+    }
+
+    /// Switching day / week / month: crossfade with a slight zoom. Going to a finer view (month → week → day)
+    /// zooms in from slightly smaller; going to a coarser one settles from slightly larger.
+    private var modeTransitionContainer: some View {
+        let zoomingIn = store.mode.zoomLevel < store.previousMode.zoomLevel
+        return ZStack {
+            content
+                .id(store.mode)
+                .transition(.asymmetric(
+                    insertion: .opacity.combined(with: .scale(scale: zoomingIn ? 0.96 : 1.04)),
+                    removal: .opacity
+                ))
+        }
+        .clipped()
+        .animation(.easeOut(duration: 0.28), value: store.mode)
     }
 
     @ViewBuilder

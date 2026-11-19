@@ -6,6 +6,8 @@ struct TimeGridCalendarView: View {
 
     @Environment(TaskStore.self) private var taskStore
     @Environment(CalendarStore.self) private var calendarStore
+    /// Start remembering the scroll position only after the initial scroll, otherwise the first layout records 00:00
+    @State private var tracksScroll = false
 
     private var calendar: Calendar { calendarStore.calendar }
 
@@ -34,11 +36,27 @@ struct TimeGridCalendarView: View {
                     }
                     // Spacer so the time label (offset up by half a line height) isn't clipped when scrolled to the top
                     .padding(.vertical, 10)
+                    // Remember which hour is at the top, so a recreated grid (day ↔ week switch) can scroll back to it
+                    .background {
+                        GeometryReader { geometry in
+                            Color.clear.preference(key: GridScrollOffsetKey.self,
+                                                   value: geometry.frame(in: .named("timeGrid")).minY)
+                        }
+                    }
+                }
+                .coordinateSpace(name: "timeGrid")
+                .onPreferenceChange(GridScrollOffsetKey.self) { [calendarStore, tracksScroll] minY in
+                    guard tracksScroll else { return }
+                    let hour = min(max(Int(((-minY) / CalendarMetrics.hourHeight).rounded()), 0), 23)
+                    // Preference callbacks are delivered on the main thread
+                    MainActor.assumeIsolated { calendarStore.lastScrollHour = hour }
                 }
                 // On first appearance other state (selection, search) may change at the same time and interrupt a synchronous scroll, so wait one frame
                 .task {
                     try? await Task.sleep(for: .milliseconds(60))
-                    proxy.scrollTo(CalendarMetrics.scrollAnchorID(calendarStore.scrollRequest.hour), anchor: .top)
+                    let hour = calendarStore.lastScrollHour ?? calendarStore.scrollRequest.hour
+                    proxy.scrollTo(CalendarMetrics.scrollAnchorID(hour), anchor: .top)
+                    tracksScroll = true
                 }
                 .onChange(of: calendarStore.scrollRequest) { _, request in
                     withAnimation(Motion.gentle) {
@@ -57,6 +75,11 @@ struct TimeGridCalendarView: View {
         }
         return DateInterval(start: first, end: end)
     }
+}
+
+private struct GridScrollOffsetKey: PreferenceKey {
+    static let defaultValue: CGFloat = 0
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) { value = nextValue() }
 }
 
 // MARK: - Date bar
