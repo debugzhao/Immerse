@@ -70,6 +70,8 @@ final class CalendarStore {
     var wantsSearchFocus = false
     /// Whether the command palette is open
     var isCommandPalettePresented = false
+    /// Reopened from Help → 重新查看引导
+    var isOnboardingPresented = false
     /// Time grid scroll request: each newly assigned value triggers one scroll
     var scrollRequest = ScrollRequest(hour: 8)
     /// Notion import awaiting confirmation

@@ -33,10 +33,14 @@ struct RootView: View {
         }
         // First launch: Do Not Disturb setup guide
         .sheet(isPresented: Binding(
-            get: { (!settings.onboardingCompleted && !PersistenceController.isEphemeral) || DebugFlags.forceOnboarding },
-            set: { if !$0 { settings.onboardingCompleted = true } }
+            get: {
+                (!settings.onboardingCompleted && !PersistenceController.isEphemeral)
+                    || calendarStore.isOnboardingPresented || DebugFlags.forceOnboarding
+            },
+            set: { if !$0 { finishOnboarding() } }
         )) {
-            OnboardingSheet()
+            OnboardingView(startAt: DebugFlags.onboardingStep, onFinish: finishOnboarding)
+                .interactiveDismissDisabled()
         }
         .sheet(item: Bindable(calendarStore).pendingImport) { preview in
             ImportPreviewView(preview: preview)
@@ -58,5 +62,10 @@ struct RootView: View {
         } message: { task in
             Text("「\(focusEngine.session?.taskTitle ?? "")」还在专注中。要放弃它，开始「\(task.displayTitle)」吗？")
         }
+    }
+
+    private func finishOnboarding() {
+        settings.onboardingCompleted = true
+        calendarStore.isOnboardingPresented = false
     }
 }

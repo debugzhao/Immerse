@@ -15,6 +15,8 @@ final class ClockTimerService {
         case ready
         case missing
         case failed(String)
+        /// This Mac can't run shortcuts at all (e.g. blocked by device management)
+        case blocked(String)
     }
 
     private(set) var setupStatus: SetupStatus = .unknown
@@ -53,7 +55,11 @@ final class ClockTimerService {
             let names = try await ShortcutsRunner.list()
             setupStatus = names.contains(settings.clockTimerShortcut) ? .ready : .missing
         } catch {
-            setupStatus = .failed(error.localizedDescription)
+            if let runError = error as? ShortcutsRunner.RunError, runError.isBlocked {
+                setupStatus = .blocked(error.localizedDescription)
+            } else {
+                setupStatus = .failed(error.localizedDescription)
+            }
         }
     }
 }

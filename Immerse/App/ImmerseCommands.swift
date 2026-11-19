@@ -61,6 +61,10 @@ struct ImmerseCommands: Commands {
             Divider()
         }
 
+        CommandGroup(replacing: .help) {
+            Button("重新查看引导") { calendarStore.isOnboardingPresented = true }
+        }
+
         CommandMenu("专注") {
             Button("开始专注选中的日程") {
                 if let submit = calendarStore.submitDraft {

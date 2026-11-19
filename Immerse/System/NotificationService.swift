@@ -32,7 +32,18 @@ enum FocusNotificationAction: String {
 }
 
 @MainActor
+@Observable
 final class NotificationService: NSObject, FocusNotifying {
+    enum Permission: Equatable {
+        case unknown
+        case notDetermined
+        case authorized
+        case denied
+    }
+
+    /// Current notification permission, refreshed by `refreshPermission()`
+    private(set) var permission: Permission = .unknown
+
     static let categoryID = "FOCUS_END"
     private static let requestID = "focus-end"
 
@@ -41,7 +52,7 @@ final class NotificationService: NSObject, FocusNotifying {
     /// Silent mode (tests, screenshots): sends nothing
     private let isSilenced: Bool
     /// The user tapped a button on the notification
-    var onAction: ((FocusNotificationAction) -> Void)?
+    @ObservationIgnored var onAction: ((FocusNotificationAction) -> Void)?
 
     init(isSilenced: Bool = false) {
         self.isSilenced = isSilenced
@@ -56,6 +67,35 @@ final class NotificationService: NSObject, FocusNotifying {
             UNNotificationCategory(identifier: Self.categoryID, actions: [complete, extend],
                                    intentIdentifiers: [], options: [])
         ])
+    }
+
+    // MARK: - Permission
+
+    func refreshPermission() async {
+        guard !isSilenced else {
+            // Screenshots: show the not-yet-asked state so the onboarding step is visible
+            permission = .notDetermined
+            return
+        }
+        permission = switch await center.notificationSettings().authorizationStatus {
+        case .notDetermined: .notDetermined
+        case .denied: .denied
+        default: .authorized
+        }
+    }
+
+    /// Ask for permission (only shows the system prompt the first time), then refresh
+    func requestPermission() async {
+        await requestAuthorizationIfNeeded()
+        await refreshPermission()
+    }
+
+    /// Open System Settings → Notifications, for when the user denied permission earlier
+    func openSystemSettings() {
+        let id = Bundle.main.bundleIdentifier ?? ""
+        if let url = URL(string: "x-apple.systempreferences:com.apple.Notifications-Settings.extension?id=\(id)") {
+            NSWorkspace.shared.open(url)
+        }
     }
 
     func requestAuthorizationIfNeeded() async {

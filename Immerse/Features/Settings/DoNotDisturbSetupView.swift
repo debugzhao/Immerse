@@ -4,37 +4,16 @@ import SwiftUI
 struct DoNotDisturbSetupView: View {
     enum Context { case onboarding, settings }
     let context: Context
-    var onFinish: (() -> Void)?
 
     @Environment(SettingsStore.self) private var settings
     @Environment(ShortcutsDoNotDisturbService.self) private var dnd
 
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
-            if context == .onboarding {
-                header
-            }
             steps
             statusRow
-            if context == .onboarding {
-                footer
-            }
         }
         .task { await dnd.checkSetup() }
-    }
-
-    private var header: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Image(systemName: "moon.circle.fill")
-                .font(.system(size: 44))
-                .foregroundStyle(.indigo)
-            Text("专注时自动开启勿扰")
-                .font(.system(size: 22, weight: .semibold))
-            Text("开始专注后，「沉浸日程」会帮你打开系统的「勿扰模式」，时间到了再自动关闭。macOS 不允许 App 直接切换勿扰，所以需要你在「快捷指令」里建两个快捷指令，只需要做一次。")
-                .font(.system(size: 13))
-                .foregroundStyle(.secondary)
-                .fixedSize(horizontal: false, vertical: true)
-        }
     }
 
     private var steps: some View {
@@ -93,6 +72,9 @@ struct DoNotDisturbSetupView: View {
             case .failed(let message):
                 Image(systemName: "xmark.octagon.fill").foregroundStyle(.red)
                 Text("检测失败：\(message)").lineLimit(2)
+            case .blocked:
+                Image(systemName: "nosign").foregroundStyle(.red)
+                Text("这台 Mac 无法运行快捷指令（可能被设备管理策略禁用）").lineLimit(2)
             }
             Spacer()
             Button("重新检测") { Task { await dnd.checkSetup() } }
@@ -101,30 +83,5 @@ struct DoNotDisturbSetupView: View {
         .font(.system(size: 12))
         .padding(10)
         .background(Color.primary.opacity(0.04), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
-    }
-
-    private var footer: some View {
-        HStack {
-            Button("暂不开启") {
-                settings.dndEnabled = false
-                onFinish?()
-            }
-            Spacer()
-            Button("完成") { onFinish?() }
-                .keyboardShortcut(.defaultAction)
-        }
-    }
-}
-
-/// First-launch onboarding sheet
-struct OnboardingSheet: View {
-    @Environment(SettingsStore.self) private var settings
-
-    var body: some View {
-        DoNotDisturbSetupView(context: .onboarding) {
-            settings.onboardingCompleted = true
-        }
-        .padding(28)
-        .frame(width: 520)
     }
 }

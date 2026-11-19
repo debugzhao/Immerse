@@ -11,6 +11,14 @@ enum ShortcutsRunner {
         case killed(signal: Int32)
         case failed(code: Int32, message: String)
 
+        /// The system can't run shortcuts at all (missing CLI, or killed by policy), as opposed to a one-off failure
+        var isBlocked: Bool {
+            switch self {
+            case .notInstalled, .killed: true
+            case .timedOut, .failed: false
+            }
+        }
+
         var errorDescription: String? {
             switch self {
             case .notInstalled: "系统里找不到 shortcuts 命令"

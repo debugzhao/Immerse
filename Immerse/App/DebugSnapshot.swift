@@ -21,6 +21,15 @@ enum DebugFlags {
     }
 
     /// IMMERSE_ONBOARDING=1: force the first-run onboarding when taking the screenshot
+    /// IMMERSE_ONBOARDING=<0-3>: which onboarding step to show
+    static var onboardingStep: OnboardingView.Step {
+        #if DEBUG
+        ProcessInfo.processInfo.environment["IMMERSE_ONBOARDING"].flatMap(Int.init).flatMap(OnboardingView.Step.init) ?? .welcome
+        #else
+        .welcome
+        #endif
+    }
+
     static var forceOnboarding: Bool {
         #if DEBUG
         ProcessInfo.processInfo.environment["IMMERSE_ONBOARDING"] != nil

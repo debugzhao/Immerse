@@ -36,6 +36,8 @@ final class ShortcutsDoNotDisturbService: DoNotDisturbServicing {
         /// Name of the missing shortcut
         case missing([String])
         case failed(String)
+        /// This Mac can't run shortcuts at all (e.g. blocked by device management)
+        case blocked(String)
     }
 
     private(set) var setupStatus: SetupStatus = .unknown
@@ -67,7 +69,11 @@ final class ShortcutsDoNotDisturbService: DoNotDisturbServicing {
             let missing = [settings.dndOnShortcut, settings.dndOffShortcut].filter { !names.contains($0) }
             setupStatus = missing.isEmpty ? .ready : .missing(missing)
         } catch {
-            setupStatus = .failed(error.localizedDescription)
+            if let runError = error as? ShortcutsRunner.RunError, runError.isBlocked {
+                setupStatus = .blocked(error.localizedDescription)
+            } else {
+                setupStatus = .failed(error.localizedDescription)
+            }
         }
         return setupStatus
     }
