@@ -96,8 +96,9 @@ git tag v<版本号> && git push origin v<版本号>
 
 Release 说明写到临时文件，格式见 [release-notes-template.md](release-notes-template.md)：
 
-- 「更新内容」根据上个 tag 到现在的提交整理，写**面向用户的中文**，按 ✨ 新功能 / 🐛 修复 / 💄 体验优化 分组；`docs` / `build` / `chore` / `test` 这类对用户无感的提交不写。
-- 「安装」一节原样保留模板内容，只替换版本号。
+- Release 说明**全部用英文**（标题、更新内容、安装说明都是英文）。
+- 「What's Changed」根据上个 tag 到现在的提交整理，写**面向用户的英文**，按 ✨ New Features / 🐛 Bug Fixes / 💄 Improvements 分组；`docs` / `build` / `chore` / `test` 这类对用户无感的提交不写。
+- 「Installation」一节原样保留模板内容，只把 `<version>` 换成版本号。
 
 ```bash
 gh release create v<版本号> dist/Immerse-<版本号>.dmg \
@@ -111,5 +112,6 @@ gh release view v<版本号> --json assets,isDraft --jq '{draft:.isDraft, assets
 
 ## 注意
 
-- App 只做了 ad-hoc 签名、没有公证。以后有了 Developer ID 证书，要在 `scripts/package-dmg.sh` 里加签名和公证，同时更新模板和 README 里的「首次打开」说明。
+- App 只做了 ad-hoc 签名、没有公证。以后有了 Developer ID 证书，要在 `scripts/package-dmg.sh` 里加签名和公证，同时更新模板和两份 README（`README.md` / `README.en.md`）里的首次打开说明。
+- 代码注释一律用英文。
 - 不要 force push，不要删除或覆盖已发布的 tag / Release；发错了先问用户。
