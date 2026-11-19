@@ -115,6 +115,17 @@ enum DebugSnapshot {
             }
         }
 
+        // IMMERSE_UPDATE=1: show the update sheet with a fake release
+        if env["IMMERSE_UPDATE"] != nil {
+            environment.updateChecker.availableUpdate = AppRelease(
+                version: "0.2.0",
+                notes: "## What's Changed\n\n### ✨ New Features\n- **Update check**: get notified when a new version is out\n\n### 🐛 Bug Fixes\n- Search field now accepts Chinese input",
+                downloadURL: UpdateChecker.latestReleaseURL, pageURL: UpdateChecker.latestReleaseURL)
+        }
+        // IMMERSE_CHECK_UPDATE=1: run a real manual check against GitHub (shows the result alert)
+        if env["IMMERSE_CHECK_UPDATE"] != nil {
+            Task { await environment.updateChecker.checkManually() }
+        }
         // IMMERSE_STATS=1: capture the focus stats window
         if env["IMMERSE_STATS"] != nil {
             statsRequested = true

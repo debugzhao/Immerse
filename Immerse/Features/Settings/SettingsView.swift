@@ -147,17 +147,38 @@ private struct ReminderSettingsTab: View {
 }
 
 private struct AboutTab: View {
+    @Environment(UpdateChecker.self) private var updater
+
     var body: some View {
+        @Bindable var updater = updater
         VStack(spacing: 10) {
-            Image(systemName: "calendar.badge.clock")
-                .font(.system(size: 48))
-                .foregroundStyle(Color.accentColor)
+            Image(nsImage: NSApp.applicationIconImage)
+                .resizable()
+                .frame(width: 64, height: 64)
             Text("沉浸日程").font(.system(size: 20, weight: .semibold))
             Text("用最轻的方式安排日程，用最强的方式进入专注。")
                 .foregroundStyle(.secondary)
-            Text(verbatim: "版本 \(Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "-")")
+            Text(verbatim: "版本 \(updater.currentVersion)")
                 .font(.system(size: 12))
                 .foregroundStyle(.tertiary)
+
+            Divider().padding(.vertical, 8)
+
+            HStack(spacing: 12) {
+                Toggle("自动检查更新", isOn: $updater.autoCheckEnabled)
+                    .toggleStyle(.checkbox)
+                Button {
+                    Task { await updater.checkManually() }
+                } label: {
+                    if updater.isChecking {
+                        ProgressView().controlSize(.small)
+                    } else {
+                        Text("检查更新")
+                    }
+                }
+                .disabled(updater.isChecking)
+            }
+            .font(.system(size: 12))
         }
         .frame(maxWidth: .infinity)
         .padding(32)

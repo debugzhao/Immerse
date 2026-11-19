@@ -10,6 +10,7 @@ final class AppEnvironment {
     let notifications: NotificationService
     let shortcutsDND: ShortcutsDoNotDisturbService
     let clockTimer: ClockTimerService
+    let updateChecker: UpdateChecker
     private let dailyReview: DailyReviewScheduler
     private var powerMonitor: PowerMonitor?
 
@@ -27,6 +28,7 @@ final class AppEnvironment {
                                   notifier: notifications, dnd: dnd,
                                   progressMilestones: { settings.progressMilestones })
         clockTimer = ClockTimerService(settings: settings)
+        updateChecker = UpdateChecker(defaults: isEphemeral ? UserDefaults(suiteName: "immerse.ephemeral") ?? .standard : .standard)
         dailyReview = DailyReviewScheduler(taskStore: taskStore, settings: settings,
                                            notifications: notifications, calendar: calendar)
 
@@ -42,5 +44,8 @@ final class AppEnvironment {
         }
         focusEngine.restore()
         dailyReview.start()
+        if !isEphemeral {
+            Task { [updateChecker] in await updateChecker.checkAutomaticallyIfDue() }
+        }
     }
 }

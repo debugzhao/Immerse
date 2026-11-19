@@ -675,3 +675,13 @@ IMMERSE_SNAPSHOT=/tmp/shot.png build/DerivedData/Build/Products/Debug/Immerse.ap
 | 修复 | `SampleData` 只编进 DEBUG，仅供截图模式写入内存库，标题换成通用示例；正式版首次启动是空日历 |
 | 存量清理 | `LegacySampleCleanup` 启动时执行一次：只删「标题命中旧示例 + 同一批写入（createdAt 相差 ≤ 5 秒、至少 8 条）」的任务，用户自己建的同名任务不受影响；旧标题以 SHA-256 存储，二进制里不含明文 |
 
+### 14.x 迭代：检查更新
+
+| 项 | 说明 |
+|---|---|
+| 数据源 | GitHub API `repos/debugzhao/Immerse/releases/latest`（公开仓库，无需 token）；取 `tag_name`、`body`、`.dmg` 附件链接 |
+| 自动检查 | 启动时检查，24 小时内最多一次；有新版本弹出更新窗口；「跳过此版本」后自动检查不再提示该版本 |
+| 手动检查 | 菜单「沉浸日程 → 检查更新…」或 设置 → 关于；总会给出结果（新版本 / 已是最新 / 失败），忽略跳过记录 |
+| 安装 | 只负责提示和打开 DMG 下载链接，安装仍是拖进「应用程序」替换（无 Developer ID 证书，暂不做 Sparkle） |
+| 逻辑 | `AppVersion` 纯函数：数字比较版本（0.1.10 > 0.1.9）、解析 GitHub JSON；`UpdateChecker` 可注入 fetch 便于测试 |
+

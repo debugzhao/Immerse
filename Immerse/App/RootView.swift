@@ -5,6 +5,7 @@ struct RootView: View {
     @Environment(FocusEngine.self) private var focusEngine
     @Environment(SettingsStore.self) private var settings
     @Environment(CalendarStore.self) private var calendarStore
+    @Environment(UpdateChecker.self) private var updater
     @Environment(\.openWindow) private var openWindow
     @Environment(\.openSettings) private var openSettings
     @State private var columnVisibility: NavigationSplitViewVisibility = .all
@@ -42,6 +43,25 @@ struct RootView: View {
             OnboardingView(startAt: DebugFlags.onboardingStep, onFinish: finishOnboarding)
                 .interactiveDismissDisabled()
         }
+        .sheet(isPresented: Binding(
+            get: { updater.availableUpdate != nil },
+            set: { if !$0 { updater.availableUpdate = nil } }
+        )) {
+            if let release = updater.availableUpdate {
+                UpdateSheet(release: release)
+            }
+        }
+        .alert(
+            manualResultTitle,
+            isPresented: Binding(
+                get: { updater.manualResult != nil },
+                set: { if !$0 { updater.manualResult = nil } }
+            )
+        ) {
+            Button("好") { updater.manualResult = nil }
+        } message: {
+            Text(manualResultMessage)
+        }
         .sheet(item: Bindable(calendarStore).pendingImport) { preview in
             ImportPreviewView(preview: preview)
         }
@@ -61,6 +81,22 @@ struct RootView: View {
             Button("取消", role: .cancel) { focusEngine.pendingSwitch = nil }
         } message: { task in
             Text("「\(focusEngine.session?.taskTitle ?? "")」还在专注中。要放弃它，开始「\(task.displayTitle)」吗？")
+        }
+    }
+
+    private var manualResultTitle: String {
+        switch updater.manualResult {
+        case .upToDate: "已是最新版本"
+        case .failed: "检查更新失败"
+        case nil: ""
+        }
+    }
+
+    private var manualResultMessage: String {
+        switch updater.manualResult {
+        case .upToDate(let version): "当前版本 \(version) 就是最新版。"
+        case .failed(let message): message
+        case nil: ""
         }
     }
 

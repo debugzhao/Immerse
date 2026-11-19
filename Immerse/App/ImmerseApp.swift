@@ -79,5 +79,6 @@ extension View {
             .environment(environment.shortcutsDND)
             .environment(environment.clockTimer)
             .environment(environment.notifications)
+            .environment(environment.updateChecker)
     }
 }

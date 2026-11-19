@@ -10,6 +10,12 @@ struct ImmerseCommands: Commands {
     private var focusEngine: FocusEngine { environment.focusEngine }
 
     var body: some Commands {
+        CommandGroup(after: .appInfo) {
+            Button("检查更新…") {
+                Task { await environment.updateChecker.checkManually() }
+            }
+        }
+
         CommandGroup(replacing: .newItem) {
             Button("新建日程") { newTask() }
                 .keyboardShortcut("n")
