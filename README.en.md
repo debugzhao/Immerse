@@ -82,7 +82,9 @@ xcodegen generate && xcodebuild -project Immerse.xcodeproj -scheme Immerse -dest
 
 ## First Run: Set Up Do Not Disturb
 
-macOS doesn't let apps toggle Do Not Disturb directly, so Immerse uses two shortcuts in the **Shortcuts** app (the app walks you through this on first launch):
+On first launch, a 4-step guide walks you through setup (Welcome → Notification permission → Do Not Disturb shortcuts → Clock timer shortcut). Every step can be skipped, and you can reopen it later from **帮助 → 重新查看引导** (Help → Show Guide Again).
+
+macOS doesn't let apps toggle Do Not Disturb directly, so Immerse uses two shortcuts in the **Shortcuts** app:
 
 1. Create a shortcut with the action **Set Focus** → turn **Do Not Disturb** on → until turned off, and name it exactly `Immerse 开启勿扰`
 2. Create another one that turns **Do Not Disturb** off, and name it exactly `Immerse 关闭勿扰`
