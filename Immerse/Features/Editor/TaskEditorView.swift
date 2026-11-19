@@ -508,7 +508,8 @@ private struct TimeSlotButton: View {
                             onPreset(minutes)
                             isPresented = false
                         } label: {
-                            Text(TimeSlots.durationText(minutes: minutes))
+                            Text(verbatim: "\(minutes) 分钟")
+                                .fixedSize()
                                 .font(.system(size: 12, weight: .medium))
                                 .padding(.horizontal, 8)
                                 .padding(.vertical, 4)
