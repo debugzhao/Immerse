@@ -2,7 +2,7 @@ import AppKit
 import SwiftUI
 
 enum DebugFlags {
-    /// IMMERSE_STATS=1：截图时打开专注统计窗口
+    /// IMMERSE_STATS=1: open the focus stats window when taking the screenshot
     static var openStats: Bool {
         #if DEBUG
         ProcessInfo.processInfo.environment["IMMERSE_STATS"] != nil
@@ -11,7 +11,7 @@ enum DebugFlags {
         #endif
     }
 
-    /// IMMERSE_SETTINGS=1：截图时打开设置窗口
+    /// IMMERSE_SETTINGS=1: open the settings window when taking the screenshot
     static var openSettings: Bool {
         #if DEBUG
         ProcessInfo.processInfo.environment["IMMERSE_SETTINGS"] != nil
@@ -20,7 +20,7 @@ enum DebugFlags {
         #endif
     }
 
-    /// IMMERSE_ONBOARDING=1：截图时强制显示首次引导
+    /// IMMERSE_ONBOARDING=1: force the first-run onboarding when taking the screenshot
     static var forceOnboarding: Bool {
         #if DEBUG
         ProcessInfo.processInfo.environment["IMMERSE_ONBOARDING"] != nil
@@ -32,17 +32,17 @@ enum DebugFlags {
 
 #if DEBUG
 
-/// 开发用：App 自己把主窗口画成 PNG，不需要系统「屏幕录制」权限。
+/// Dev only: the app renders its own main window to a PNG, so no system "Screen Recording" permission is needed.
 ///
-/// 用法：IMMERSE_SNAPSHOT=/tmp/shot.png open Immerse.app，截完图后自动退出。可选参数：
-/// - IMMERSE_APPEARANCE=dark|light：外观
-/// - IMMERSE_SELECT=<标题关键字>：选中第一个匹配的日程（打开详情面板）
-/// - IMMERSE_SEARCH=<关键字>：在搜索框里输入
-/// - IMMERSE_MODE=day|week|month：日历视图
-/// - IMMERSE_FILTER=urgent：只显示紧急
-/// - IMMERSE_EDIT=<标题关键字> / IMMERSE_CREATE=1：打开日程弹窗
+/// Usage: IMMERSE_SNAPSHOT=/tmp/shot.png open Immerse.app; it quits automatically after the capture. Optional parameters:
+/// - IMMERSE_APPEARANCE=dark|light: appearance
+/// - IMMERSE_SELECT=<title keyword>: select the first matching event (opens the detail panel)
+/// - IMMERSE_SEARCH=<keyword>: type into the search field
+/// - IMMERSE_MODE=day|week|month: calendar view
+/// - IMMERSE_FILTER=urgent: show urgent only
+/// - IMMERSE_EDIT=<title keyword> / IMMERSE_CREATE=1: open the event sheet
 ///
-/// 注意：透出桌面的毛玻璃（behindWindow）在截图里是纯色，真实效果以屏幕为准。
+/// Note: the frosted glass that shows the desktop through (behindWindow) renders as a solid color in screenshots; the real effect is as seen on screen.
 @MainActor
 enum DebugSnapshot {
     private static var statsRequested = false
@@ -64,10 +64,10 @@ enum DebugSnapshot {
            let task = environment.taskStore.search(keyword).first {
             environment.calendarStore.reveal(task)
         }
-        // IMMERSE_EDIT=<标题关键字>：打开日程弹窗（编辑）
+        // IMMERSE_EDIT=<title keyword>: open the event sheet (edit)
         if let keyword = env["IMMERSE_EDIT"],
            var task = environment.taskStore.search(keyword).first {
-            // IMMERSE_NOTES=<文字>：先写入备注（\n 换行），用来看 Markdown 高亮
+            // IMMERSE_NOTES=<text>: write the notes first (\n for newline), to check Markdown highlighting
             if let notes = env["IMMERSE_NOTES"] {
                 task.notes = notes.replacingOccurrences(of: "\\n", with: "\n")
                 environment.taskStore.update(task)
@@ -75,24 +75,24 @@ enum DebugSnapshot {
             environment.calendarStore.reveal(task)
             environment.calendarStore.openEditor(task.id)
         }
-        // IMMERSE_UNSAVED=<标题>：模拟上次没保存的新建内容（配合 IMMERSE_CREATE）
+        // IMMERSE_UNSAVED=<title>: simulate unsaved create content from last time (use with IMMERSE_CREATE)
         if let title = env["IMMERSE_UNSAVED"] {
             environment.calendarStore.unsavedDraft = TaskSnapshot(title: title, start: .now, end: nil, isAllDay: false,
                                                                   priority: .important, notes: "- [ ] 列提纲\n- [ ] 写初稿")
         }
-        // IMMERSE_CREATE=1：打开新建弹窗（同 ⌘N）
+        // IMMERSE_CREATE=1: open the create sheet (same as ⌘N)
         if env["IMMERSE_CREATE"] != nil {
             let interval = environment.calendarStore.defaultNewEventInterval()
             environment.calendarStore.draft = DraftEvent(start: interval.start, end: interval.end, usesDefaultTime: true)
         }
-        // IMMERSE_HOVER=<标题关键字>：模拟鼠标悬停在日程上
+        // IMMERSE_HOVER=<title keyword>: simulate the mouse hovering over an event
         if let keyword = env["IMMERSE_HOVER"], let task = environment.taskStore.search(keyword).first {
             environment.calendarStore.hoveredTaskID = task.id
         }
         if let keyword = env["IMMERSE_SEARCH"] {
             environment.calendarStore.searchText = keyword
         }
-        // IMMERSE_FOCUS=<标题关键字>[,秒数]：开始专注；秒数很短时可以截到「时间到」面板
+        // IMMERSE_FOCUS=<title keyword>[,seconds]: start focus; with a very short duration you can capture the "time up" panel
         if let spec = env["IMMERSE_FOCUS"] {
             let parts = spec.split(separator: ",").map(String.init)
             if var task = environment.taskStore.search(parts[0]).first {
@@ -106,21 +106,21 @@ enum DebugSnapshot {
             }
         }
 
-        // IMMERSE_STATS=1：截专注统计窗口
+        // IMMERSE_STATS=1: capture the focus stats window
         if env["IMMERSE_STATS"] != nil {
             statsRequested = true
         }
-        // IMMERSE_SETTINGS=1：截设置窗口（提醒页）
+        // IMMERSE_SETTINGS=1: capture the settings window (Reminders page)
         let settingsRequested = DebugFlags.openSettings
-        // IMMERSE_PALETTE=<输入内容>：打开 ⌘K 命令面板（输入内容只能截到空面板，用于看样式）
+        // IMMERSE_PALETTE=<input>: open the ⌘K command palette (typed input cannot be captured, only an empty palette, for checking styling)
         if env["IMMERSE_PALETTE"] != nil {
             environment.calendarStore.isCommandPalettePresented = true
         }
-        // IMMERSE_IMMERSIVE=1：进入沉浸视图（需同时 IMMERSE_FOCUS）
+        // IMMERSE_IMMERSIVE=1: enter the immersive view (requires IMMERSE_FOCUS too)
         if env["IMMERSE_IMMERSIVE"] != nil {
             environment.focusEngine.isImmersivePresented = true
         }
-        // IMMERSE_CHECK_SHORTCUTS=<输出文件>：在 App 进程里跑一次 shortcuts list，验证调用链路
+        // IMMERSE_CHECK_SHORTCUTS=<output file>: run `shortcuts list` once inside the app process to verify the call chain
         if let output = env["IMMERSE_CHECK_SHORTCUTS"] {
             Task { @MainActor in
                 let result: String
@@ -135,7 +135,7 @@ enum DebugSnapshot {
         }
 
         Task { @MainActor in
-            // 等窗口布局、滚动定位、动画都完成
+            // Wait for the window layout, scroll positioning, and animations to finish
             try? await Task.sleep(for: .seconds(2.5))
             let candidates = NSApp.windows.filter { $0.isVisible && $0.contentView != nil && $0.frame.width > 500 }
             let preferred = settingsRequested ? candidates.first { $0.title == "提醒" }
@@ -144,7 +144,7 @@ enum DebugSnapshot {
             guard let mainWindow = preferred ?? candidates.first else {
                 exit(0)
             }
-            // 有弹出的 sheet 时截 sheet
+            // When a sheet is presented, capture the sheet
             let window = mainWindow.attachedSheet ?? mainWindow
             guard let view = window.contentView?.superview ?? window.contentView,
                   let rep = view.bitmapImageRepForCachingDisplay(in: view.bounds) else {
@@ -153,7 +153,7 @@ enum DebugSnapshot {
             }
             view.cacheDisplay(in: view.bounds, to: rep)
             try? rep.representation(using: .png, properties: [:])?.write(to: URL(fileURLWithPath: path))
-            // 不用 NSApp.terminate：有 sheet 弹出时退出会被推迟
+            // Do not use NSApp.terminate: quitting is deferred while a sheet is presented
             exit(0)
         }
     }

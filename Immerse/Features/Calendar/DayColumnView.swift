@@ -1,7 +1,7 @@
 import AppKit
 import SwiftUI
 
-/// 一天的时间列：摆放当天的定时任务，处理拖拽创建、移动、调整时长
+/// One day's time column: lays out that day's timed tasks and handles drag-to-create, move, and resize
 struct DayColumnView: View {
     let day: Date
     let tasks: [TaskSnapshot]
@@ -9,9 +9,9 @@ struct DayColumnView: View {
     @Environment(CalendarStore.self) private var store
     @Environment(TaskStore.self) private var taskStore
 
-    /// 正在框选的新日程（松手后转成 store.draft）
+    /// New event being rubber-banded (converted to store.draft on release)
     @State private var creating: DraftEvent?
-    /// 正在拖动的日程
+    /// Event being dragged
     @State private var activeDrag: ActiveDrag?
 
     private struct ActiveDrag {
@@ -22,7 +22,7 @@ struct DayColumnView: View {
 
     private struct Segment: Identifiable {
         let task: TaskSnapshot
-        /// 截断到当天范围内的起止时间（跨午夜的任务会被拆成多段）
+        /// Start/end clamped to the day (tasks crossing midnight are split into multiple segments)
         let start: Date
         let end: Date
         var id: UUID { task.id }
@@ -69,11 +69,11 @@ struct DayColumnView: View {
             Rectangle().fill(Palette.gridLine).frame(width: 0.5).allowsHitTesting(false)
         }
         .frame(maxWidth: .infinity)
-        // 拖动中的日程可能越过相邻列，把本列提到最上层，避免被盖住
+        // A dragged event may cross into adjacent columns; raise this column to the top so it isn't covered
         .zIndex(activeDrag != nil ? 1 : 0)
     }
 
-    // MARK: - 背景：框选创建 / 双击创建 / 点空白取消选中
+    // MARK: - Background: drag to create / double-click to create / click empty space to deselect
 
     private func background(width: CGFloat) -> some View {
         Color.clear
@@ -94,7 +94,7 @@ struct DayColumnView: View {
                     }
             )
             .onTapGesture(count: 2, coordinateSpace: .local) { location in
-                // 双击空白处：在该位置创建 1 小时的日程
+                // Double-click empty space: create a 1-hour event at that position
                 let start = CalendarMetrics.date(forY: location.y - CalendarMetrics.hourHeight / 4, dayStart: dayStart)
                 store.select(nil)
                 store.draft = DraftEvent(start: start, end: start.addingTimeInterval(3600))
@@ -105,7 +105,7 @@ struct DayColumnView: View {
             }
     }
 
-    // MARK: - 日程块
+    // MARK: - Event blocks
 
     @ViewBuilder
     private func block(for segment: Segment, placement: LayoutPlacement, columnWidth: CGFloat) -> some View {
@@ -157,7 +157,7 @@ struct DayColumnView: View {
         return EventEditing.apply(mode, to: task, minutes: minutes, days: days, calendar: calendar)
     }
 
-    /// 拖动中的预览块：画在目标位置，原位置保留半透明的影子
+    /// Preview block while dragging: drawn at the target position, leaving a translucent ghost at the original
     private func dragPreview(_ drag: ActiveDrag, columnWidth: CGFloat) -> some View {
         let updated = preview(task: drag.task, mode: drag.mode, translation: drag.translation, columnWidth: columnWidth)
         let interval = updated.displayInterval(in: calendar)
@@ -175,7 +175,7 @@ struct DayColumnView: View {
             .allowsHitTesting(false)
     }
 
-    // MARK: - 草稿
+    // MARK: - Draft
 
     private var visibleDraft: DraftEvent? {
         if let creating { return creating }
@@ -193,7 +193,7 @@ struct DayColumnView: View {
             .offset(x: 2, y: top + 1)
     }
 
-    // MARK: - 数据
+    // MARK: - Data
 
     private func makeSegments() -> [Segment] {
         let dayEnd = calendar.date(byAdding: .day, value: 1, to: dayStart) ?? dayStart
@@ -206,7 +206,7 @@ struct DayColumnView: View {
     }
 }
 
-/// 实际专注过的时间段：画在列最左侧的细条，和计划的日程块对照（实际 vs 计划）
+/// Time actually spent focusing: a thin bar on the column's left edge, to compare against the planned event block (actual vs. planned)
 private struct FocusStrips: View {
     let dayStart: Date
     @Environment(FocusEngine.self) private var engine
@@ -231,7 +231,7 @@ private struct FocusStrips: View {
     }
 }
 
-/// 日程块上下边缘的拖拽热区，鼠标悬停时显示上下调整光标
+/// Drag hot zones on the top/bottom edges of an event block; shows a resize cursor on hover
 private struct ResizeHandle: View {
     var body: some View {
         Color.clear
@@ -244,7 +244,7 @@ private struct ResizeHandle: View {
     }
 }
 
-/// 框选中 / 待命名的新日程：虚线描边
+/// New event being selected / awaiting a name: dashed outline
 private struct DraftBlockView: View {
     let draft: DraftEvent
     @Environment(CalendarStore.self) private var store
@@ -268,7 +268,7 @@ private struct DraftBlockView: View {
     }
 }
 
-/// 当前时间红线：左端一个圆点，横贯今天这一列
+/// Current-time red line: a dot on the left end, spanning today's column
 private struct NowIndicatorView: View {
     let dayStart: Date
 

@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// 搜索结果浮层：按标题或备注匹配，点击跳转到对应日期并选中
+/// Search results overlay: matches title or notes; click to jump to the date and select
 struct SearchResultsView: View {
     @Environment(TaskStore.self) private var taskStore
     @Environment(CalendarStore.self) private var store
@@ -30,7 +30,7 @@ struct SearchResultsView: View {
                     }
                     .padding(6)
                 }
-                // 按结果数量算高度，最多 360，避免结果少时下面空一大块
+                // Height based on result count, capped at 360, so few results don't leave a big blank area
                 .frame(height: min(CGFloat(results.count) * 50 + 12, 360))
             }
         }
@@ -63,7 +63,7 @@ struct SearchResultsView: View {
     }
 }
 
-/// 鼠标悬停时的浅色高亮背景
+/// Light highlight background on mouse hover
 struct HoverHighlight: View {
     @State private var isHovering = false
     var body: some View {

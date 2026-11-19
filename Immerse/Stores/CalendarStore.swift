@@ -16,7 +16,7 @@ enum CalendarMode: String, CaseIterable, Identifiable, Sendable {
 }
 
 extension Calendar {
-    /// 全 App 统一使用的日历：公历、中文、周一为每周第一天。
+    /// The calendar used app-wide: Gregorian, Chinese locale, weeks start on Monday.
     static let app: Calendar = {
         var calendar = Calendar(identifier: .gregorian)
         calendar.locale = Locale(identifier: "zh_CN")
@@ -31,16 +31,16 @@ struct ScrollRequest: Equatable {
     var token = UUID()
 }
 
-/// 拖拽框选出来、还没起名字的新日程
+/// A new event created by drag-selecting, not yet named
 struct DraftEvent: Equatable {
     var start: Date
     var end: Date
     var isAllDay: Bool = false
-    /// ⌘N 给的默认时间（不是用户在日历上选的）：恢复未保存内容时连时间一起恢复
+    /// Default time from ⌘N (not picked by the user on the calendar): restored together with the unsaved content
     var usesDefaultTime = false
 }
 
-/// 日历的浏览状态：看哪一天、什么视图、选中了哪个任务、筛选条件。
+/// Calendar browsing state: which day, which view, which task is selected, and the filters.
 @MainActor
 @Observable
 final class CalendarStore {
@@ -49,30 +49,30 @@ final class CalendarStore {
     var selectedTaskID: UUID?
     let calendar: Calendar
 
-    // 筛选与搜索
+    // Filters and search
     var priorityFilter: Set<Priority> = Set(Priority.allCases)
     var statusFilter: Set<TaskStatus> = Set(TaskStatus.allCases)
     var searchText = ""
 
-    /// 拖拽创建中的草稿
+    /// Draft being created by dragging
     var draft: DraftEvent? { didSet { if draft != nil { hoveredTaskID = nil } } }
-    /// 正在拖动的任务，用来把所在列提到最上层，避免拖到相邻列时被盖住
+    /// Task being dragged; raises its column to the top so it is not covered when dragged over an adjacent column
     var draggingTaskID: UUID? { didSet { if draggingTaskID != nil { hoveredTaskID = nil } } }
-    /// 鼠标悬停的日程（显示「专注」快捷按钮）。全局只有一个，避免移出事件丢失时多个块同时显示
+    /// Event under the mouse (shows the "专注" (Focus) quick button). Global singleton so multiple blocks cannot show it at once if an exit event is lost
     var hoveredTaskID: UUID?
-    /// 新建弹窗没保存就关掉时留下的内容，下次打开新建弹窗时恢复
+    /// Content left over when the create sheet is closed without saving; restored the next time it opens
     var unsavedDraft: TaskSnapshot?
-    /// 日程弹窗正在编辑的任务
+    /// Task being edited in the event sheet
     var editingTaskID: UUID? { didSet { if editingTaskID != nil { hoveredTaskID = nil } } }
-    /// 新建弹窗打开时，菜单里的 ⌘↩ 改为「创建」
+    /// While the create sheet is open, ⌘↩ in the menu becomes "Create"
     @ObservationIgnored var submitDraft: (() -> Void)?
-    /// 请求搜索框获得焦点（⌘F）
+    /// Request to focus the search field (⌘F)
     var wantsSearchFocus = false
-    /// 命令面板是否打开
+    /// Whether the command palette is open
     var isCommandPalettePresented = false
-    /// 时间网格滚动请求：每次赋新值都会触发一次滚动
+    /// Time grid scroll request: each newly assigned value triggers one scroll
     var scrollRequest = ScrollRequest(hour: 8)
-    /// 待确认的 Notion 导入
+    /// Notion import awaiting confirmation
     var pendingImport: ImportPreview?
 
     init(anchorDate: Date = .now, calendar: Calendar = .app) {
@@ -90,7 +90,7 @@ final class CalendarStore {
             ?? DateInterval(start: calendar.startOfDay(for: anchorDate), duration: 24 * 3600)
     }
 
-    /// 时间网格要显示的日期（每个元素是当天 0 点）。
+    /// Dates the time grid displays (each element is midnight of that day).
     var visibleDays: [Date] {
         days(in: visibleInterval)
     }
@@ -106,7 +106,7 @@ final class CalendarStore {
         return days
     }
 
-    /// 顶栏标题，例如「2026年11月」，跨月的周显示「2026年11月 – 12月」，日视图显示「2026年11月18日」。
+    /// Top bar title, e.g. "2026年11月"; a week spanning two months shows "2026年11月 – 12月", and day view shows "2026年11月18日".
     var title: String {
         if mode == .day {
             let c = calendar.dateComponents([.year, .month, .day], from: anchorDate)
@@ -121,7 +121,7 @@ final class CalendarStore {
         return "\(y1)年\(m1)月 – \(y2)年\(m2)月"
     }
 
-    /// ISO 周数，用于标题旁的小标签
+    /// ISO week number, used for the small label next to the title
     var weekNumber: Int {
         calendar.component(.weekOfYear, from: anchorDate)
     }
@@ -134,7 +134,7 @@ final class CalendarStore {
         anchorDate = .now
     }
 
-    /// direction：-1 上一页，+1 下一页
+    /// direction: -1 for the previous page, +1 for the next
     func step(_ direction: Int) {
         let (component, value): (Calendar.Component, Int) = switch mode {
         case .day: (.day, direction)
@@ -150,29 +150,29 @@ final class CalendarStore {
         if id != editingTaskID { editingTaskID = nil }
     }
 
-    /// 新建或编辑弹窗是否打开
+    /// Whether the create or edit sheet is open
     var isEditorPresented: Bool {
         draft != nil || editingTaskID != nil
     }
 
-    /// 打开日程弹窗编辑
+    /// Open the event sheet for editing
     func openEditor(_ id: UUID) {
         select(id)
         editingTaskID = id
     }
 
-    /// 跳到某个任务所在的日期并选中它
+    /// Jump to the date of a task and select it
     func reveal(_ task: TaskSnapshot) {
         anchorDate = task.start
         if mode == .month { mode = .week }
         select(task.id)
         if !task.isAllDay {
-            // 滚到日程开始前一小时，让它出现在可视区上部
+            // Scroll to one hour before the event starts so it appears in the upper part of the viewport
             scrollRequest = ScrollRequest(hour: max(calendar.component(.hour, from: task.start) - 1, 0))
         }
     }
 
-    // MARK: - 筛选
+    // MARK: - Filters
 
     var isFiltering: Bool {
         priorityFilter.count < Priority.allCases.count || statusFilter.count < TaskStatus.allCases.count
@@ -195,10 +195,10 @@ final class CalendarStore {
         statusFilter = Set(TaskStatus.allCases)
     }
 
-    // MARK: - 新建
+    // MARK: - Create
 
-    /// 打开新建弹窗时的初始内容：有上次没保存的内容就恢复它。
-    /// 时间以这次在日历上选的为准；⌘N（默认时间）时连上次的时间一起恢复。
+    /// Initial content when opening the create sheet: restores unsaved content from last time, if any.
+    /// The time is whatever was just picked on the calendar; with ⌘N (default time), last time's time is restored too.
     func makeNewTask(for draft: DraftEvent) -> (task: TaskSnapshot, isRestored: Bool) {
         let fresh = TaskSnapshot(title: "", start: draft.start, end: draft.isAllDay ? nil : draft.end, isAllDay: draft.isAllDay)
         guard var saved = unsavedDraft else { return (fresh, false) }
@@ -210,12 +210,12 @@ final class CalendarStore {
         return (saved, true)
     }
 
-    /// 新建弹窗关掉但没创建：有填写内容就留着，下次恢复；什么都没填就丢掉
+    /// Create sheet closed without creating: keep anything filled in for the next restore; discard it if nothing was filled in
     func keepUnsaved(_ task: TaskSnapshot) {
         unsavedDraft = task.hasUserContent ? task : nil
     }
 
-    /// ⌘N 新建日程的默认时间：看今天就取下一个整点，否则取那天 9:00；时长 1 小时
+    /// Default time for ⌘N: when viewing today, the next full hour, otherwise 9:00 on that day; duration 1 hour
     func defaultNewEventInterval(now: Date = .now) -> DateInterval {
         let base: Date
         if calendar.isDate(anchorDate, inSameDayAs: now) {
@@ -229,7 +229,7 @@ final class CalendarStore {
 }
 
 extension TaskSnapshot {
-    /// 新建表单里用户有没有填过东西（时间不算，时间来自日历上的选择）
+    /// Whether the user filled in anything in the create form (time does not count; it comes from the calendar selection)
     var hasUserContent: Bool {
         !title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
             || !notes.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty

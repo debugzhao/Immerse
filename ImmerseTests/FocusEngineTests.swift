@@ -2,14 +2,14 @@ import Foundation
 import Testing
 @testable import Immerse
 
-/// 可手动拨动的时钟
+/// A clock that tests can advance manually
 @MainActor
 final class FakeClock {
     var now = Date(timeIntervalSince1970: 1_800_000_000)
     func advance(minutes: Double) { now = now.addingTimeInterval(minutes * 60) }
 }
 
-/// 记录调用顺序的假勿扰服务
+/// A fake Do Not Disturb service that records call order
 @MainActor
 final class FakeDoNotDisturb: DoNotDisturbServicing {
     var isEnabledInSettings = true
@@ -28,7 +28,7 @@ final class FakeDoNotDisturb: DoNotDisturbServicing {
         log.append("off")
     }
 
-    /// 测试里模拟上次崩溃时勿扰没关
+    /// Simulates a previous crash that left Do Not Disturb on
     func simulateLeftOn() { isActivatedByApp = true }
 }
 
@@ -52,7 +52,7 @@ struct FocusEngineTests {
                                              end: clock.now.addingTimeInterval(3600), isAllDay: false))
     }
 
-    /// 让引擎里异步发出的 Task（开关勿扰、发通知）跑完
+    /// Lets the async Tasks spawned by the engine (toggling DND, sending notifications) finish
     private func settle() async {
         for _ in 0..<5 { await Task.yield() }
         try? await Task.sleep(for: .milliseconds(20))
@@ -92,11 +92,11 @@ struct FocusEngineTests {
     @Test func 睡过了结束时间唤醒后立即进入时间到() async {
         engine.start(task)
         await settle()
-        clock.advance(minutes: 90)   // 睡眠期间计时器没跑
-        engine.tick()                // 唤醒后 PowerMonitor 调用
+        clock.advance(minutes: 90)   // timer did not run during sleep
+        engine.tick()                // called by PowerMonitor after wake
         #expect(engine.phase == .timeUp)
         await settle()
-        // 先关勿扰，再发提醒
+        // turn off DND first, then send the reminder
         #expect(dnd.log == ["on", "off"])
         #expect(notifier.timeUps == ["阅读《第一性原理》"])
     }
@@ -105,7 +105,7 @@ struct FocusEngineTests {
         engine.start(task)
         clock.advance(minutes: 60)
         engine.tick()
-        clock.advance(minutes: 7)    // 用户过了 7 分钟才点
+        clock.advance(minutes: 7)    // the user only tapped after 7 minutes
         engine.complete()
         #expect(engine.phase == .idle)
         #expect(taskStore.task(id: task.id)?.status == .done)
@@ -123,7 +123,7 @@ struct FocusEngineTests {
         engine.extend()
         await settle()
         #expect(engine.phase == .running)
-        #expect(engine.remaining == 15 * 60)   // 犹豫的 2 分钟不算
+        #expect(engine.remaining == 15 * 60)   // the 2 minutes of hesitation do not count
         #expect(dnd.log == ["on", "off", "on"])
     }
 
@@ -153,7 +153,7 @@ struct FocusEngineTests {
         engine.start(task)
         clock.advance(minutes: 20)
 
-        // 模拟 App 被杀后重新启动：新引擎、同一份数据
+        // simulate relaunch after the app was killed: new engine, same data
         let clock = self.clock
         let restarted = FocusEngine(taskStore: taskStore, repository: sessions, notifier: notifier,
                                     dnd: dnd, clock: { clock.now })
@@ -190,7 +190,7 @@ struct FocusEngineTests {
     @Test func 专注引擎改状态不进撤销栈() {
         engine.start(task)
         taskStore.undo()
-        // 撤销的是「新建日程」，而不是把进行中改回未开始
+        // what gets undone is "create event", not reverting in-progress back to not-started
         #expect(tasks.items.isEmpty)
     }
 

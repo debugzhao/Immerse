@@ -2,18 +2,18 @@ import AppKit
 import Foundation
 import Observation
 
-/// 勿扰开关的抽象。正式实现走「快捷指令」，测试里用假实现。
+/// Abstraction over the Do Not Disturb switch. The real implementation goes through Shortcuts; tests use a fake.
 @MainActor
 protocol DoNotDisturbServicing: AnyObject {
-    /// 用户在设置里是否打开了「专注时自动开启勿扰」
+    /// Whether the user enabled "auto-enable Do Not Disturb during focus" in settings
     var isEnabledInSettings: Bool { get }
-    /// 勿扰当前是否是由 Immerse 打开的（用于崩溃后恢复）
+    /// Whether Do Not Disturb is currently on because of Immerse (used for recovery after a crash)
     var isActivatedByApp: Bool { get }
     func activate() async throws
     func deactivate() async throws
 }
 
-/// 什么都不做的实现
+/// Implementation that does nothing
 @MainActor
 final class NoopDoNotDisturbService: DoNotDisturbServicing {
     var isEnabledInSettings: Bool { false }
@@ -22,10 +22,10 @@ final class NoopDoNotDisturbService: DoNotDisturbServicing {
     func deactivate() async throws {}
 }
 
-/// 用「快捷指令」切换勿扰。
+/// Toggles Do Not Disturb via Shortcuts.
 ///
-/// macOS 没有开放切换专注模式的公共 API，所以让用户在「快捷指令」里建两个快捷指令
-/// （设定专注模式 → 打开 / 关闭勿扰），App 通过 `/usr/bin/shortcuts run` 调用它们。
+/// macOS has no public API for toggling Focus modes, so the user creates two shortcuts in the Shortcuts app
+/// (set Focus → turn Do Not Disturb on / off), and the app invokes them via `/usr/bin/shortcuts run`.
 @MainActor
 @Observable
 final class ShortcutsDoNotDisturbService: DoNotDisturbServicing {
@@ -33,7 +33,7 @@ final class ShortcutsDoNotDisturbService: DoNotDisturbServicing {
         case unknown
         case checking
         case ready
-        /// 缺少的快捷指令名称
+        /// Name of the missing shortcut
         case missing([String])
         case failed(String)
     }
@@ -58,7 +58,7 @@ final class ShortcutsDoNotDisturbService: DoNotDisturbServicing {
         settings.dndActivatedByApp = false
     }
 
-    /// 检查两个快捷指令是否都已经建好
+    /// Checks that both shortcuts have been created
     @discardableResult
     func checkSetup() async -> SetupStatus {
         setupStatus = .checking
@@ -72,14 +72,14 @@ final class ShortcutsDoNotDisturbService: DoNotDisturbServicing {
         return setupStatus
     }
 
-    /// 打开「快捷指令」App
+    /// Opens the Shortcuts app
     func openShortcutsApp() {
         if let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: "com.apple.shortcuts") {
             NSWorkspace.shared.openApplication(at: url, configuration: .init())
         }
     }
 
-    /// 打开「系统设置 → 专注模式」，方便用户把 Immerse 加入勿扰的允许列表
+    /// Opens System Settings → Focus so the user can add Immerse to the Do Not Disturb allow list
     func openFocusSettings() {
         if let url = URL(string: "x-apple.systempreferences:com.apple.Focus-Settings.extension") {
             NSWorkspace.shared.open(url)

@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// 日视图 / 周视图共用的时间网格：日期栏 + 全天行 + 可滚动的 24 小时网格
+/// Time grid shared by day / week views: date bar + all-day row + scrollable 24-hour grid
 struct TimeGridCalendarView: View {
     let days: [Date]
 
@@ -32,10 +32,10 @@ struct TimeGridCalendarView: View {
                         HourGridLines()
                             .padding(.leading, CalendarMetrics.gutterWidth)
                     }
-                    // 留白，避免滚动到顶部时时间标签（向上偏移了半行字高）被截掉
+                    // Spacer so the time label (offset up by half a line height) isn't clipped when scrolled to the top
                     .padding(.vertical, 10)
                 }
-                // 首屏时其它状态（选中、搜索）可能同时在变，同步滚动会被打断，所以等一帧再滚
+                // On first appearance other state (selection, search) may change at the same time and interrupt a synchronous scroll, so wait one frame
                 .task {
                     try? await Task.sleep(for: .milliseconds(60))
                     proxy.scrollTo(CalendarMetrics.scrollAnchorID(calendarStore.scrollRequest.hour), anchor: .top)
@@ -59,7 +59,7 @@ struct TimeGridCalendarView: View {
     }
 }
 
-// MARK: - 日期栏
+// MARK: - Date bar
 
 private struct DayHeaderRow: View {
     let days: [Date]
@@ -67,7 +67,7 @@ private struct DayHeaderRow: View {
 
     var body: some View {
         HStack(spacing: 0) {
-            // 注意：不能用 Color.clear，它会在竖直方向撑满，把日期栏拉高
+            // Note: don't use Color.clear, it expands vertically and stretches the date bar
             Spacer().frame(width: CalendarMetrics.gutterWidth, height: 0)
             ForEach(days, id: \.self) { day in
                 let isToday = store.isToday(day)
@@ -90,7 +90,7 @@ private struct DayHeaderRow: View {
                 .frame(height: CalendarMetrics.dayHeaderHeight)
                 .contentShape(Rectangle())
                 .onTapGesture(count: 2) {
-                    // 双击日期进入日视图
+                    // Double-click a date to open day view
                     store.anchorDate = day
                     store.mode = .day
                 }
@@ -99,7 +99,7 @@ private struct DayHeaderRow: View {
     }
 }
 
-// MARK: - 时间刻度
+// MARK: - Time ruler
 
 private struct TimeGutterView: View {
     let showsNow: Bool
@@ -123,12 +123,12 @@ private struct TimeGutterView: View {
                     .frame(height: CalendarMetrics.hourHeight)
                 }
             }
-            // 滚动定位锚点：放在整点上方 12pt，滚动后时间标签能完整显示
-            // （必须改变布局位置，offset 只影响绘制，scrollTo 不认）
+            // Scroll anchor: placed 12pt above the hour so the time label is fully visible after scrolling
+            // (it must change layout position; offset only affects drawing and scrollTo ignores it)
             ForEach(0..<24, id: \.self) { hour in
                 VStack(spacing: 0) {
                     Spacer().frame(height: max(CGFloat(hour) * CalendarMetrics.hourHeight - 12, 0))
-                    // 用字符串 id：ForEach 元素自身的整数 id 也会被 scrollTo 匹配到，必须区分开
+                    // Use string ids: ForEach elements' own integer ids would also match scrollTo, so they must be distinguished
                     Color.clear.frame(width: 1, height: 1).id(CalendarMetrics.scrollAnchorID(hour))
                     Spacer(minLength: 0)
                 }
@@ -151,7 +151,7 @@ private struct TimeGutterView: View {
     }
 }
 
-// MARK: - 网格线
+// MARK: - Grid lines
 
 private struct HourGridLines: View {
     var body: some View {

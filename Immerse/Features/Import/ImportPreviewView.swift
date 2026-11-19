@@ -2,20 +2,20 @@ import AppKit
 import SwiftUI
 import UniformTypeIdentifiers
 
-/// 待确认的导入
+/// Import awaiting confirmation
 struct ImportPreview: Identifiable {
     let id = UUID()
     let fileName: String
-    /// 去重后要导入的
+    /// Events to import after deduplication
     let tasks: [TaskSnapshot]
-    /// 和已有日程重复、被跳过的数量
+    /// Number skipped because they duplicate existing events
     let duplicateCount: Int
     let skipped: [(row: Int, reason: String)]
 }
 
 @MainActor
 enum NotionImport {
-    /// 选文件 → 解析 → 去重，返回预览；用户取消返回 nil
+    /// Pick a file → parse → dedupe, returning a preview; returns nil if the user cancels
     static func pickAndParse(existing: [TaskSnapshot]) -> Result<ImportPreview, Error>? {
         let panel = NSOpenPanel()
         panel.title = "导入 Notion 导出的 CSV"
@@ -33,7 +33,7 @@ enum NotionImport {
     }
 }
 
-/// 导入前的确认面板
+/// Confirmation panel before import
 struct ImportPreviewView: View {
     let preview: ImportPreview
     @Environment(TaskStore.self) private var taskStore

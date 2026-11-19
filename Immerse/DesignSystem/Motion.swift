@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// 全局动画参数，保证各处动效节奏一致
+/// Global animation parameters, keeping motion pacing consistent everywhere
 enum Motion {
     static var snappy: Animation { .spring(response: 0.3, dampingFraction: 0.85) }
     static var gentle: Animation { .spring(response: 0.45, dampingFraction: 0.9) }

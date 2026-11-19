@@ -1,6 +1,6 @@
 import Foundation
 
-/// 依赖注入的根：统一创建并持有所有 Store 和系统服务，App 入口把它们注入到视图环境里。
+/// Dependency-injection root: creates and owns all stores and system services; the app entry injects them into the view environment.
 @MainActor
 final class AppEnvironment {
     let taskStore: TaskStore
@@ -13,7 +13,7 @@ final class AppEnvironment {
     private let dailyReview: DailyReviewScheduler
     private var powerMonitor: PowerMonitor?
 
-    /// - Parameter isEphemeral: 测试 / 截图：不发系统通知、不切换真实的勿扰
+    /// - Parameter isEphemeral: tests / screenshots: no system notifications, no toggling of the real Do Not Disturb
     init(repository: TaskRepository, focusRepository: FocusSessionRepository,
          isEphemeral: Bool = false, calendar: Calendar = .app) {
         taskStore = TaskStore(repository: repository)

@@ -68,7 +68,7 @@ struct TaskStoreTests {
 
         store.undo()
         #expect(repository.items.first?.title == "")
-        // 再撤销一步才撤掉新建
+        // one more undo step to undo the creation
         store.undo()
         #expect(repository.items.isEmpty)
     }

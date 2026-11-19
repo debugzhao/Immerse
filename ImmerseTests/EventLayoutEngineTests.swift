@@ -5,7 +5,7 @@ import Testing
 struct EventLayoutEngineTests {
     private let base = Date(timeIntervalSince1970: 1_800_000_000)
 
-    /// 用「距 base 的小时数」构造一个排布项
+    /// Builds a layout item from its hour offset relative to base
     private func item(_ start: Double, _ end: Double, _ priority: Priority = .normal) -> LayoutItem {
         LayoutItem(id: UUID(),
                    start: base.addingTimeInterval(start * 3600),
@@ -28,7 +28,7 @@ struct EventLayoutEngineTests {
     }
 
     @Test func 间接重叠的日程属于同一簇并复用空出的列() {
-        // A 和 C 不直接重叠，但都和 B 重叠，所以三者同簇；C 复用 A 空出来的第 0 列
+        // A and C do not overlap directly but both overlap B, so all three share a cluster; C reuses column 0 freed by A
         let a = item(9, 10), b = item(9.5, 10.5), c = item(10, 11)
         let result = EventLayoutEngine.layout([a, b, c])
         #expect(result[a.id]?.column == 0)
@@ -38,7 +38,7 @@ struct EventLayoutEngineTests {
     }
 
     @Test func 右侧空闲时向右扩展() {
-        // A 占满三小时，B、C 在第一小时并排；D 出现时 B、C 都结束了，D 进第 1 列并向右扩到第 2 列
+        // A spans three hours, B and C sit side by side in the first hour; by the time D starts both have ended, so D takes column 1 and expands right into column 2
         let a = item(9, 12), b = item(9, 10), c = item(9, 10), d = item(10.5, 11)
         let result = EventLayoutEngine.layout([a, b, c, d])
         #expect(result[a.id] == LayoutPlacement(column: 0, columnCount: 3, span: 1))
@@ -53,7 +53,7 @@ struct EventLayoutEngineTests {
     }
 
     @Test func 太短的日程按最小时长参与重叠判断() {
-        // A 只有 5 分钟，但视觉上至少占 25 分钟，会和 9:15 开始的 B 撞上
+        // A is only 5 minutes but visually occupies at least 25, so it collides with B starting at 9:15
         let a = item(9, 9 + 5.0 / 60), b = item(9.25, 10)
         #expect(EventLayoutEngine.layout([a, b])[b.id]?.columnCount == 1)
         #expect(EventLayoutEngine.layout([a, b], minimumDuration: 25 * 60)[b.id]?.columnCount == 2)
@@ -62,9 +62,9 @@ struct EventLayoutEngineTests {
     @Test func 全天行按天分道() {
         let a = UUID(), b = UUID(), c = UUID()
         let lanes = EventLayoutEngine.allDayLanes([
-            (a, 0, 2),   // 周一到周三
-            (b, 1, 1),   // 周二，与 a 冲突
-            (c, 3, 4),   // 周四到周五，可以复用 a 的道
+            (a, 0, 2),   // Monday to Wednesday
+            (b, 1, 1),   // Tuesday, conflicts with a
+            (c, 3, 4),   // Thursday to Friday, can reuse a's lane
         ])
         #expect(lanes[a] == 0)
         #expect(lanes[b] == 1)

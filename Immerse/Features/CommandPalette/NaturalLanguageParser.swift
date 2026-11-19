@@ -1,22 +1,22 @@
 import Foundation
 
-/// 自然语言解析的结果
+/// Result of natural language parsing
 struct ParsedInput: Equatable {
     var title: String
-    /// 识别出的日期（当天 0 点）
+    /// Recognized date (midnight of that day)
     var date: Date?
-    /// 识别出的开始时间（含日期）
+    /// Recognized start time (including date)
     var start: Date?
-    /// 识别出的结束时间（「3点到5点」）
+    /// Recognized end time ("3点到5点")
     var end: Date?
-    /// 识别出的时长（分钟）
+    /// Recognized duration (minutes)
     var durationMinutes: Int?
     var priority: Priority?
     var place: String?
 
-    /// 转成日程。规则：
-    /// - 没写时间：创建为全天日程（默认今天），时长作为计划专注时长
-    /// - 写了时间：结束时间 = 明确的结束时间 > 开始 + 时长 > 开始 + 1 小时
+    /// Converts to an event. Rules:
+    /// - No time given: create an all-day event (default today); the duration becomes the planned focus duration
+    /// - Time given: end time = explicit end time > start + duration > start + 1 hour
     func makeSnapshot(now: Date, calendar: Calendar) -> TaskSnapshot {
         let trimmedTitle = title.trimmingCharacters(in: .whitespacesAndNewlines)
         if let start {
@@ -30,24 +30,24 @@ struct ParsedInput: Equatable {
     }
 }
 
-/// 中文自然语言解析（本地规则，不联网）。
+/// Chinese natural language parser (local rules, no network).
 ///
-/// 例：「明天下午3点 阅读《第一性原理》 1小时 重要」→ 明天 15:00–16:00，重要，标题「阅读《第一性原理》」
+/// Example: "明天下午3点 阅读《第一性原理》 1小时 重要" -> tomorrow 15:00–16:00, important, title "阅读《第一性原理》"
 ///
-/// 做法：按「地点 → 优先级 → 时间段 → 时间点 → 时长 → 日期」的顺序用正则识别，
-/// 识别到的片段从文本里挖掉，剩下的就是标题。顺序很重要：先挖时间，避免「3点30分」里的「30分」被当成时长。
+/// Approach: match with regexes in the order "location → priority → time range → time point → duration → date";
+/// each matched fragment is cut out of the text and what remains is the title. Order matters: cut the time first so the "30分" in "3点30分" is not mistaken for a duration.
 enum NaturalLanguageParser {
     static func parse(_ text: String, now: Date = .now, calendar: Calendar = .app) -> ParsedInput {
         var rest = text
         var result = ParsedInput(title: "")
 
-        // 地点：@图书馆
+        // Location: @图书馆
         if let match = firstMatch(#"[@＠](\S+)"#, in: rest) {
             result.place = match.group(1)
             rest = match.removed
         }
 
-        // 优先级：!!! / !! / ! 或独立的「紧急 / 重要 / 普通」
+        // Priority: !!! / !! / ! or a standalone "紧急 / 重要 / 普通"
         if let match = firstMatch(#"(?:^|\s)(!!!|！！！|!!|！！|!|！)(?=\s|$)"#, in: rest) {
             let marks = match.group(1)?.count ?? 1
             result.priority = marks >= 3 ? .urgent : marks == 2 ? .important : .normal
@@ -57,21 +57,21 @@ enum NaturalLanguageParser {
             rest = match.removed
         }
 
-        // 日期里的「今晚」同时给出了日期和时段，先记下来
+        // "今晚" in the date part gives both a date and a period of day; remember it first
         let impliesTonight = rest.contains("今晚")
 
-        // 时间段：「下午3点到5点」「14:00-15:30」
+        // Time range: "下午3点到5点", "14:00-15:30"
         var startTime: (hour: Int, minute: Int)?
         var endTime: (hour: Int, minute: Int)?
         let time = #"(上午|早上|早晨|中午|下午|傍晚|晚上|今晚|凌晨)?\s*(\d{1,2}|[零一二两三四五六七八九十]{1,3})(?:[:：](\d{2})|[点時时](半|一刻|三刻|(\d{1,2})分?)?)"#
         if let match = firstMatch(time + #"\s*(?:到|至|-|–|—|~|～)\s*"# + time, in: rest) {
             startTime = resolveTime(period: match.group(1), hour: match.group(2), colonMinute: match.group(3),
                                     suffix: match.group(4), minute: match.group(5))
-            // 结束时间没写时段时沿用开始的时段：「下午3点到5点」
+            // If the end time has no period of day, reuse the start's: "下午3点到5点"
             let explicitEndPeriod = match.group(6)
             endTime = resolveTime(period: explicitEndPeriod ?? match.group(1), hour: match.group(7),
                                   colonMinute: match.group(8), suffix: match.group(9), minute: match.group(10))
-            // 「晚上11点到1点」：沿用时段会得到 13:00，早于开始时间，应理解为次日凌晨 1 点
+            // "晚上11点到1点": reusing the period gives 13:00, which is before the start, so interpret it as 1 AM the next day
             if explicitEndPeriod == nil, let s = startTime, let e = endTime,
                e.hour * 60 + e.minute <= s.hour * 60 + s.minute {
                 endTime = resolveTime(period: "凌晨", hour: match.group(7), colonMinute: match.group(8),
@@ -84,7 +84,7 @@ enum NaturalLanguageParser {
             rest = match.removed
         }
 
-        // 时长：「1小时」「45分钟」「半小时」「一个半小时」「1.5h」「90min」
+        // Duration: "1小时", "45分钟", "半小时", "一个半小时", "1.5h", "90min"
         if let match = firstMatch(#"(?:(\d+|[一二两三四五六七八九十]+)个半小时)"#, in: rest),
            let n = number(match.group(1)) {
             result.durationMinutes = Int(n * 60) + 30
@@ -99,7 +99,7 @@ enum NaturalLanguageParser {
             rest = match.removed
         }
 
-        // 日期
+        // Date
         let today = calendar.startOfDay(for: now)
         if let match = firstMatch(#"(大后天|后天|明天|今天|今晚)"#, in: rest) {
             let offset = ["今天": 0, "今晚": 0, "明天": 1, "后天": 2, "大后天": 3][match.group(1) ?? ""] ?? 0
@@ -118,7 +118,7 @@ enum NaturalLanguageParser {
             result.date = today
         }
 
-        // 组装开始 / 结束时间：只写了时间没写日期时，默认今天；今天这个时间已经过了就算明天
+        // Assemble start / end times: with a time but no date, default to today; if that time has already passed today, use tomorrow
         if let startTime {
             var day = result.date ?? today
             var start = calendar.date(bySettingHour: startTime.hour, minute: startTime.minute, second: 0, of: day) ?? day
@@ -129,7 +129,7 @@ enum NaturalLanguageParser {
             result.start = start
             if let endTime,
                var end = calendar.date(bySettingHour: endTime.hour, minute: endTime.minute, second: 0, of: day) {
-                if end <= start { end = calendar.date(byAdding: .day, value: 1, to: end) ?? end }   // 跨午夜
+                if end <= start { end = calendar.date(byAdding: .day, value: 1, to: end) ?? end }   // crosses midnight
                 result.end = end
             }
         }
@@ -140,7 +140,7 @@ enum NaturalLanguageParser {
         return result
     }
 
-    // MARK: - 时间
+    // MARK: - Time
 
     private static func resolveTime(period: String?, hour: String?, colonMinute: String?,
                                     suffix: String?, minute: String?) -> (hour: Int, minute: Int)? {
@@ -157,20 +157,20 @@ enum NaturalLanguageParser {
         case "下午", "傍晚", "晚上", "今晚":
             if h < 12 { h += 12 }
         case "中午":
-            if h < 6 { h += 12 }   // 中午1点 = 13:00，中午12点 = 12:00
+            if h < 6 { h += 12 }   // "中午1点" = 13:00, "中午12点" = 12:00
         case "凌晨", "上午", "早上", "早晨":
             if h == 12 { h = 0 }
         default:
-            // 没写时段：用 HH:mm 写法的照字面；「3点」这种 1–6 点大概率指下午
+            // No period of day given: HH:mm is taken literally; "3点" (hours 1–6) most likely means PM
             if colonMinute == nil, (1...6).contains(h) { h += 12 }
         }
         return (min(h, 23), h == 24 ? 59 : m)
     }
 
-    // MARK: - 日期
+    // MARK: - Date
 
     private static func weekday(prefix: String, day: String, today: Date, calendar: Calendar) -> Date? {
-        // 周一 = 0 … 周日 = 6
+        // Monday = 0 … Sunday = 6
         guard let index = ["一", "二", "三", "四", "五", "六", "日"].firstIndex(of: day == "天" ? "日" : day),
               let weekStart = calendar.dateInterval(of: .weekOfYear, for: today)?.start,
               let thisWeek = calendar.date(byAdding: .day, value: index, to: weekStart) else { return nil }
@@ -179,7 +179,7 @@ enum NaturalLanguageParser {
         case "下周": return calendar.date(byAdding: .day, value: 7, to: thisWeek)
         case "下下周": return calendar.date(byAdding: .day, value: 14, to: thisWeek)
         default:
-            // 单说「周三」：今天或之后最近的那个周三
+            // A bare "周三": the nearest Wednesday today or later
             return thisWeek < today ? calendar.date(byAdding: .day, value: 7, to: thisWeek) : thisWeek
         }
     }
@@ -190,13 +190,13 @@ enum NaturalLanguageParser {
         components.month = month
         components.day = day
         guard let date = calendar.date(from: components) else { return nil }
-        // 已经过去的日期算明年（11 月说「1月5日」指明年）
+        // Past dates roll over to next year (in November, "1月5日" means next year)
         return date < today ? calendar.date(byAdding: .year, value: 1, to: date) : date
     }
 
-    // MARK: - 数字
+    // MARK: - Numbers
 
-    /// 阿拉伯数字或中文数字（支持到九十九）
+    /// Arabic or Chinese numerals (up to 99)
     static func number(_ text: String?) -> Double? {
         guard let text, !text.isEmpty else { return nil }
         if let value = Double(text) { return value }
@@ -212,11 +212,11 @@ enum NaturalLanguageParser {
         return Double(value)
     }
 
-    // MARK: - 正则
+    // MARK: - Regex
 
     private struct Match {
         let groups: [String?]
-        /// 去掉匹配片段后的文本（用空格占位，避免前后文字粘在一起）
+        /// Text after removing the matched fragment (replaced with spaces so the surrounding text does not stick together)
         let removed: String
         func group(_ index: Int) -> String? { index < groups.count ? groups[index] : nil }
     }

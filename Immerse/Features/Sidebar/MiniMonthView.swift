@@ -1,9 +1,9 @@
 import SwiftUI
 
-/// 侧栏迷你月历：点日期跳转，高亮今天和当前正在看的周
+/// Sidebar mini month calendar: click a date to jump, highlights today and the week being viewed
 struct MiniMonthView: View {
     @Environment(CalendarStore.self) private var store
-    /// 迷你月历自己翻页，不影响主日历；主日历跳到别的月份时再同步过来
+    /// The mini calendar pages independently of the main calendar; it re-syncs when the main calendar jumps to another month
     @State private var displayedMonth: Date = .now
 
     private var calendar: Calendar { store.calendar }
@@ -26,7 +26,7 @@ struct MiniMonthView: View {
 
     private var header: some View {
         HStack {
-            // 用 verbatim：普通的 Text 插值会按本地化格式化数字，年份会变成「2,026」
+            // Use verbatim: a plain Text interpolation localizes number formatting, turning the year into "2,026"
             Text(verbatim: "\(calendar.component(.year, from: displayedMonth))年\(calendar.component(.month, from: displayedMonth))月")
                 .font(.system(size: 13, weight: .semibold))
             Spacer()
@@ -49,7 +49,7 @@ struct MiniMonthView: View {
     }
 
     private func weekRow(_ week: [Date]) -> some View {
-        // DateInterval.contains 是闭区间，会把下周一 0 点也算进来，这里按半开区间判断
+        // DateInterval.contains is a closed interval and would include next Monday 00:00; use a half-open range instead
         let visible = store.visibleInterval
         let isVisibleWeek = store.mode == .week && week.contains { $0 >= visible.start && $0 < visible.end }
         return HStack(spacing: 0) {
@@ -87,7 +87,7 @@ struct MiniMonthView: View {
             .onTapGesture { store.anchorDate = day }
     }
 
-    // MARK: - 日期计算
+    // MARK: - Date calculation
 
     private func monthStart(of date: Date) -> Date {
         calendar.dateInterval(of: .month, for: date)?.start ?? date
@@ -99,14 +99,14 @@ struct MiniMonthView: View {
         }
     }
 
-    /// 按每周第一天重新排序的星期符号：「一 二 三 四 五 六 日」
+    /// Weekday symbols reordered by first day of week: "一 二 三 四 五 六 日"
     private var orderedWeekdaySymbols: [String] {
         let symbols = calendar.veryShortStandaloneWeekdaySymbols
         let shift = calendar.firstWeekday - 1
         return Array(symbols[shift...] + symbols[..<shift])
     }
 
-    /// 固定 6 行，避免翻月时高度跳动
+    /// Always 6 rows so the height doesn't jump when paging months
     private var weeks: [[Date]] {
         let start = monthStart(of: displayedMonth)
         let leading = (calendar.component(.weekday, from: start) - calendar.firstWeekday + 7) % 7

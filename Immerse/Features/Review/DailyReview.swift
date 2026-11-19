@@ -1,11 +1,11 @@
 import Foundation
 import Observation
 
-/// 每日复盘提醒的内容（纯计算，便于测试）
+/// Content of the daily review reminder (pure computation, easy to test)
 enum DailyReview {
     static let maxListed = 5
 
-    /// 下一次提醒的时刻：今天的提醒时间还没到就是今天，否则是明天
+    /// Next reminder time: today if today's reminder time hasn't passed, otherwise tomorrow
     static func nextFireDate(after now: Date, minutes: Int, calendar: Calendar) -> Date {
         let today = calendar.startOfDay(for: now)
         let fire = today.addingTimeInterval(TimeInterval(minutes * 60))
@@ -14,7 +14,7 @@ enum DailyReview {
         return tomorrow.addingTimeInterval(TimeInterval(minutes * 60))
     }
 
-    /// 那一天没有任务时返回 nil（不提醒）
+    /// Returns nil when that day has no tasks (no reminder)
     static func content(for tasks: [TaskSnapshot], calendar: Calendar) -> (title: String, body: String)? {
         guard !tasks.isEmpty else { return nil }
         let unfinished = tasks
@@ -37,8 +37,8 @@ enum DailyReview {
     }
 }
 
-/// 安排每日复盘通知：用系统定时通知，App 没开着也会按时提醒。
-/// 任务有变动、设置改了、每半小时都会重新安排一次，保证通知内容是最新的。
+/// Schedules the daily review notification: uses a system scheduled notification so it fires on time even if the app isn't running.
+/// Rescheduled whenever tasks change, settings change, and every half hour, to keep the notification content current.
 @MainActor
 final class DailyReviewScheduler {
     private let taskStore: TaskStore
@@ -57,7 +57,7 @@ final class DailyReviewScheduler {
     func start() {
         reschedule()
         observeChanges()
-        // 提醒发出后要安排第二天的；跨天、睡眠唤醒后也靠它补上
+        // After a reminder fires, schedule the next day's; this also catches up across day changes and wake from sleep
         refresher = Task { [weak self] in
             while !Task.isCancelled {
                 try? await Task.sleep(for: .seconds(30 * 60))

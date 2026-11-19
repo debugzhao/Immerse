@@ -1,7 +1,7 @@
 import Foundation
 import SwiftData
 
-/// 持久化的任务实体。只在数据层内部使用，对外一律转换成 `TaskSnapshot`。
+/// Persisted task entity. Used only inside the data layer; always converted to `TaskSnapshot` for outside use.
 @Model
 final class TaskItem {
     @Attribute(.unique) var id: UUID
@@ -9,7 +9,7 @@ final class TaskItem {
     var start: Date
     var end: Date?
     var isAllDay: Bool
-    // macOS 14 的 SwiftData 对枚举谓词支持不稳定，存原始值，查询时用基础类型比较
+    // SwiftData on macOS 14 handles enum predicates unreliably, so store the raw value and compare primitive types in queries
     var priorityRaw: Int
     var statusRaw: String
     var notes: String
@@ -18,7 +18,7 @@ final class TaskItem {
     var createdAt: Date
     var updatedAt: Date
 
-    // 删除任务时保留专注记录（断开关联），专注统计不会因此丢数据
+    // Deleting a task keeps its focus sessions (the relationship is nullified), so focus stats don't lose data
     @Relationship(deleteRule: .nullify, inverse: \FocusSession.task)
     var sessions: [FocusSession] = []
 

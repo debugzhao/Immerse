@@ -1,8 +1,8 @@
 import AppKit
 import SwiftUI
 
-/// 全屏沉浸视图：只显示任务名、大号倒计时、进度和备注，背景是毛玻璃 + 优先级色的柔光。
-/// 进入时窗口切到全屏，Esc 或「退出沉浸」回到日历。
+/// Fullscreen immersive view: shows only the task name, large countdown, progress, and notes, over vibrancy + a soft priority-colored glow.
+/// Entering switches the window to fullscreen; Esc or "退出沉浸" (exit immersive) returns to the calendar.
 struct ImmersiveFocusView: View {
     @Environment(FocusEngine.self) private var engine
     @Environment(TaskStore.self) private var taskStore
@@ -13,9 +13,9 @@ struct ImmersiveFocusView: View {
         let tint = task?.priority.color ?? .accentColor
 
         ZStack {
-            // 厚毛玻璃打底：日历被充分模糊，只留一点色彩氛围，不干扰注意力
+            // Thick vibrancy as the base: the calendar is heavily blurred, leaving just a hint of color without distracting
             Rectangle().fill(.ultraThickMaterial)
-            // 优先级色的柔光，随专注进度缓慢扩散
+            // Soft priority-colored glow that slowly spreads as focus progresses
             RadialGradient(colors: [tint.opacity(0.35), tint.opacity(0.05), .clear],
                            center: .center, startRadius: 40,
                            endRadius: 300 + 400 * engine.progress)
@@ -64,7 +64,7 @@ struct ImmersiveFocusView: View {
     }
 }
 
-/// 沉浸视图的容器：盖住整个主窗口，并联动窗口全屏
+/// Immersive view container: covers the whole main window and drives window fullscreen
 struct ImmersiveOverlay: View {
     @Environment(FocusEngine.self) private var engine
 
@@ -85,7 +85,7 @@ struct ImmersiveOverlay: View {
     }
 
     private func setFullScreen(_ on: Bool) {
-        // 截图模式下不切全屏，避免影响截图
+        // Don't enter fullscreen in screenshot mode, to avoid affecting screenshots
         guard !PersistenceController.isSnapshotMode,
               let window = NSApp.windows.first(where: { $0.isVisible && $0.frame.width > 600 && !($0 is NSPanel) }) else { return }
         let isFull = window.styleMask.contains(.fullScreen)

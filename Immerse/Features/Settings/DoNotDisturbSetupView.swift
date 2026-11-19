@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// 勿扰设置引导：说明为什么需要快捷指令、怎么建、检测是否建好。首次启动和设置页共用
+/// Do Not Disturb setup guide: explains why the Shortcut is needed, how to create it, and checks whether it exists. Shared by first launch and Settings
 struct DoNotDisturbSetupView: View {
     enum Context { case onboarding, settings }
     let context: Context
@@ -116,7 +116,7 @@ struct DoNotDisturbSetupView: View {
     }
 }
 
-/// 首次启动的引导弹窗
+/// First-launch onboarding sheet
 struct OnboardingSheet: View {
     @Environment(SettingsStore.self) private var settings
 

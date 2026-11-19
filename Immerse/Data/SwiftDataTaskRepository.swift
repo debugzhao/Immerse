@@ -3,12 +3,12 @@ import SwiftData
 
 @MainActor
 final class SwiftDataTaskRepository: TaskRepository {
-    /// 持有容器，保证整个 App 生命周期内数据库不被释放
+    /// Holds the container so the database isn't released during the app's lifetime
     let container: ModelContainer
     private let calendar: Calendar
     var context: ModelContext { container.mainContext }
 
-    /// 跨天任务最多回溯这么久去查，超过 60 天的超长任务极少，换来谓词能走索引
+    /// How far back to look for multi-day tasks; tasks longer than 60 days are very rare, and the bound lets the predicate use an index
     private let lookback: TimeInterval = 60 * 24 * 3600
 
     init(container: ModelContainer, calendar: Calendar = .app) {
@@ -19,7 +19,7 @@ final class SwiftDataTaskRepository: TaskRepository {
     func tasks(in interval: DateInterval) throws -> [TaskSnapshot] {
         let upper = interval.end
         let lower = interval.start.addingTimeInterval(-lookback)
-        // 谓词只用基础类型字段：粗筛 start 落在 [lower, upper) 的任务，精确的区间相交放到内存里判断
+        // The predicate uses only primitive-typed fields: coarsely filter tasks whose start falls in [lower, upper); the exact interval overlap is checked in memory
         let descriptor = FetchDescriptor<TaskItem>(
             predicate: #Predicate { $0.start < upper && $0.start >= lower },
             sortBy: [SortDescriptor(\.start)]

@@ -1,7 +1,7 @@
 import Foundation
 import Observation
 
-/// 用户设置，存在 UserDefaults
+/// User settings, stored in UserDefaults
 @MainActor
 @Observable
 final class SettingsStore {
@@ -19,7 +19,7 @@ final class SettingsStore {
     }
 
     static let defaultClockTimerShortcut = "Immerse 开始计时"
-    /// 进度提醒可选的百分比
+    /// Selectable percentages for progress reminders
     static let milestoneOptions = [25, 50, 75, 80, 90]
 
     static let defaultOnShortcut = "Immerse 开启勿扰"
@@ -27,21 +27,21 @@ final class SettingsStore {
 
     @ObservationIgnored private let defaults: UserDefaults
 
-    /// 专注时自动开启勿扰
+    /// Auto-enable Do Not Disturb during focus
     var dndEnabled: Bool { didSet { defaults.set(dndEnabled, forKey: Key.dndEnabled) } }
     var dndOnShortcut: String { didSet { defaults.set(dndOnShortcut, forKey: Key.dndOnShortcut) } }
     var dndOffShortcut: String { didSet { defaults.set(dndOffShortcut, forKey: Key.dndOffShortcut) } }
-    /// 勿扰是由 Immerse 打开的：崩溃后重启时据此关闭勿扰
+    /// Do Not Disturb was turned on by Immerse: used to turn it off on relaunch after a crash
     var dndActivatedByApp: Bool { didSet { defaults.set(dndActivatedByApp, forKey: Key.dndActivatedByApp) } }
     var onboardingCompleted: Bool { didSet { defaults.set(onboardingCompleted, forKey: Key.onboardingCompleted) } }
 
-    /// 专注到这些百分比时发进度提醒（默认 50%、80%）
+    /// Send progress reminders when focus reaches these percentages (default 50%, 80%)
     var progressMilestones: [Int] { didSet { defaults.set(progressMilestones, forKey: Key.progressMilestones) } }
-    /// 每天定时提醒还没完成的任务
+    /// Daily reminder for tasks not yet completed
     var dailyReviewEnabled: Bool { didSet { defaults.set(dailyReviewEnabled, forKey: Key.dailyReviewEnabled) } }
-    /// 每日复盘提醒时间：当天 0 点起的分钟数（默认 21:00）
+    /// Daily review reminder time: minutes since midnight (default 21:00)
     var dailyReviewMinutes: Int { didSet { defaults.set(dailyReviewMinutes, forKey: Key.dailyReviewMinutes) } }
-    /// 开始专注时用快捷指令在「时钟」里开倒计时
+    /// Use a shortcut to start a countdown in Clock when focus begins
     var clockTimerEnabled: Bool { didSet { defaults.set(clockTimerEnabled, forKey: Key.clockTimerEnabled) } }
     var clockTimerShortcut: String { didSet { defaults.set(clockTimerShortcut, forKey: Key.clockTimerShortcut) } }
 

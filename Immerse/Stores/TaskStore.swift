@@ -2,28 +2,28 @@ import Foundation
 import Observation
 import OSLog
 
-/// 底部的轻提示，可带「撤销」按钮
+/// A toast at the bottom, optionally with an "Undo" button
 struct Toast: Identifiable, Equatable {
     let id = UUID()
     let message: String
     var showsUndo: Bool = false
 }
 
-/// 任务数据的读写入口。
+/// Entry point for reading and writing task data.
 ///
-/// - 读：视图调用 `tasks(in:)` 等方法，方法内部读取 `revision` 建立依赖，数据一变视图自动刷新。
-/// - 写：每个写操作都向 `undoManager` 注册逆操作，逆操作执行时又会注册回来，于是撤销 / 重做都是免费的。
+/// - Reads: views call methods like `tasks(in:)`, which read `revision` internally to establish a dependency, so views refresh when data changes.
+/// - Writes: every write registers an inverse operation with `undoManager`, and running it registers the original back, so undo / redo come for free.
 @MainActor
 @Observable
 final class TaskStore {
     @ObservationIgnored private let repository: TaskRepository
     @ObservationIgnored private let logger = Logger(subsystem: "com.debugzhao.immerse", category: "TaskStore")
     @ObservationIgnored let undoManager: UndoManager
-    /// 连续编辑同一个字段（比如在详情面板里打字）时合并成一步撤销
+    /// Merges consecutive edits to the same field (e.g. typing in the detail panel) into one undo step
     @ObservationIgnored private var lastCoalescing: (key: String, at: Date)?
     @ObservationIgnored private let coalescingWindow: TimeInterval = 2
 
-    /// 数据版本号。读取方法内部会访问它，从而让 SwiftUI 建立依赖。
+    /// Data revision number. Read methods access it internally so SwiftUI establishes a dependency.
     private(set) var revision = 0
     var toast: Toast?
 
@@ -31,11 +31,11 @@ final class TaskStore {
         self.repository = repository
         self.undoManager = undoManager
         undoManager.levelsOfUndo = 100
-        // 默认会把同一个事件循环里的所有修改合并成一步撤销；改成每个操作显式分组，行为可预期
+        // By default all changes in one run-loop turn merge into a single undo step; group each operation explicitly for predictable behavior
         undoManager.groupsByEvent = false
     }
 
-    // MARK: - 读取
+    // MARK: - Reading
 
     func tasks(in interval: DateInterval) -> [TaskSnapshot] {
         _ = revision
@@ -60,7 +60,7 @@ final class TaskStore {
         return attempt("读取任务") { try repository.allTasks() } ?? []
     }
 
-    // MARK: - 写入
+    // MARK: - Writing
 
     @discardableResult
     func create(_ snapshot: TaskSnapshot, actionName: String = "新建日程") -> TaskSnapshot {
@@ -69,7 +69,7 @@ final class TaskStore {
         return snapshot
     }
 
-    /// 批量导入：整体作为一步撤销
+    /// Bulk import: undone as a single step
     func importTasks(_ snapshots: [TaskSnapshot]) {
         guard !snapshots.isEmpty else { return }
         breakCoalescing()
@@ -80,14 +80,14 @@ final class TaskStore {
         }
     }
 
-    /// - Parameter coalescingKey: 相同 key 在短时间内的连续修改合并成一步撤销
+    /// - Parameter coalescingKey: consecutive edits with the same key within a short window merge into one undo step
     func update(_ snapshot: TaskSnapshot, actionName: String = "修改日程", coalescingKey: String? = nil) {
         guard let previous = task(id: snapshot.id), previous != snapshot else { return }
 
         if let key = coalescingKey,
            let last = lastCoalescing, last.key == key,
            Date.now.timeIntervalSince(last.at) < coalescingWindow {
-            // 合并：只写数据，不注册新的撤销步骤，撤销时直接回到这一串编辑之前
+            // Coalesce: only write data without registering a new undo step, so undo goes straight back to before this run of edits
             lastCoalescing = (key, .now)
             undoManager.disableUndoRegistration()
             applyUpsert(snapshot, previous: previous)
@@ -114,7 +114,7 @@ final class TaskStore {
         update(snapshot, actionName: status == .done ? "标记完成" : "修改状态")
     }
 
-    /// 专注引擎修改状态：不进撤销栈，否则 ⌘Z 会把「进行中」改回去，和计时状态对不上
+    /// Focus engine state changes: kept off the undo stack, otherwise ⌘Z would revert "in progress" and fall out of sync with the timer state
     func setStatusWithoutUndo(_ status: TaskStatus, for id: UUID) {
         guard var snapshot = task(id: id), snapshot.status != status else { return }
         snapshot.status = status
@@ -135,7 +135,7 @@ final class TaskStore {
         update(snapshot, actionName: "修改优先级")
     }
 
-    // MARK: - 撤销
+    // MARK: - Undo
 
     var canUndo: Bool { _ = revision; return undoManager.canUndo }
     var canRedo: Bool { _ = revision; return undoManager.canRedo }
@@ -154,12 +154,12 @@ final class TaskStore {
         undoManager.redo()
     }
 
-    /// 在编辑别的东西前调用，避免把不相关的修改合并到一步撤销里
+    /// Call before editing something else, so unrelated changes are not merged into one undo step
     func breakCoalescing() {
         lastCoalescing = nil
     }
 
-    /// 一个用户操作 = 一步撤销
+    /// One user action = one undo step
     private func undoStep(_ name: String, _ body: () -> Void) {
         undoManager.beginUndoGrouping()
         body()
@@ -167,7 +167,7 @@ final class TaskStore {
         undoManager.endUndoGrouping()
     }
 
-    // MARK: - 原子操作（自动注册逆操作）
+    // MARK: - Atomic operations (inverse registered automatically)
 
     private func applyUpsert(_ snapshot: TaskSnapshot, previous: TaskSnapshot?) {
         guard attempt("保存", { try repository.upsert(snapshot) }) != nil else { return }
@@ -206,7 +206,7 @@ final class TaskStore {
 }
 
 extension TaskSnapshot {
-    /// 标题为空时的显示文字
+    /// Display text when the title is empty
     var displayTitle: String {
         let trimmed = title.trimmingCharacters(in: .whitespacesAndNewlines)
         return trimmed.isEmpty ? "（无标题）" : trimmed

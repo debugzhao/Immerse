@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// 日历主区域：顶栏 + 当前视图 + 键盘快捷键（日程详情在居中弹窗里编辑）
+/// Main calendar area: top bar + current view + keyboard shortcuts (event details are edited in a centered popup)
 struct CalendarContainerView: View {
     @Environment(CalendarStore.self) private var store
     @Environment(TaskStore.self) private var taskStore
@@ -25,7 +25,7 @@ struct CalendarContainerView: View {
             .focusEffectDisabled()
             .focused($isCalendarFocused)
             .onAppear { isCalendarFocused = true }
-            // 选中日程、关掉弹窗后把键盘焦点拉回日历，保证 ⌫、Space 等单键快捷键可用
+            // After selecting an event and closing the popup, pull keyboard focus back to the calendar so single-key shortcuts like ⌫ and Space work
             .onChange(of: store.selectedTaskID) { _, _ in
                 if !store.isEditorPresented { isCalendarFocused = true }
             }
@@ -135,14 +135,14 @@ struct CalendarContainerView: View {
         .background(Color.primary.opacity(0.06), in: RoundedRectangle(cornerRadius: 7, style: .continuous))
     }
 
-    /// ↩：打开选中日程的弹窗
+    /// ↩: open the popup for the selected event
     private func openSelection() -> KeyPress.Result {
         guard !store.isEditorPresented, let id = store.selectedTaskID else { return .ignored }
         store.openEditor(id)
         return .handled
     }
 
-    /// Space：选中的日程正在专注就暂停 / 继续，否则开始专注；没选中时控制当前专注
+    /// Space: pause / resume if the selected event is being focused, otherwise start focus; with no selection, control the current focus session
     private func toggleFocus() -> KeyPress.Result {
         guard !store.isEditorPresented else { return .ignored }
         if let task = taskStore.task(id: store.selectedTaskID), !focusEngine.isFocusing(on: task.id) {
@@ -162,7 +162,7 @@ struct CalendarContainerView: View {
     }
 
     private func handleShortcut(_ press: KeyPress) -> KeyPress.Result {
-        // 带 ⌘ / ⌃ / ⌥ 的组合键交给系统菜单处理
+        // Combos with ⌘ / ⌃ / ⌥ are left to the system menu
         guard press.modifiers.isDisjoint(with: [.command, .control, .option]), !store.isEditorPresented else { return .ignored }
         switch press.characters.lowercased() {
         case "t": store.goToToday()

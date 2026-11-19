@@ -10,7 +10,7 @@ settings:
   base:
     SWIFT_VERSION: "5.0"
     SWIFT_STRICT_CONCURRENCY: complete
-    # SE-0418：KeyPath 字面量自动推断为 Sendable，否则 SwiftData 的 #Predicate / SortDescriptor 在严格并发检查下会报警告
+    # SE-0418: KeyPath literals are inferred as Sendable; otherwise SwiftData's #Predicate / SortDescriptor warn under strict concurrency checking
     SWIFT_UPCOMING_FEATURE_INFER_SENDABLE_FROM_CAPTURES: YES
     MACOSX_DEPLOYMENT_TARGET: "14.0"
     CODE_SIGN_IDENTITY: "-"
@@ -36,7 +36,7 @@ targets:
     entitlements:
       path: Immerse/Resources/Immerse.entitlements
       properties:
-        # 需要调用 /usr/bin/shortcuts 切换勿扰，不能开沙盒
+        # Needs to call /usr/bin/shortcuts to toggle Do Not Disturb, so the sandbox can't be enabled
         com.apple.security.app-sandbox: false
     settings:
       base:
@@ -46,7 +46,7 @@ targets:
         ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
         COMBINE_HIDPI_IMAGES: YES
       configs:
-        # 测试 bundle 需要注入宿主 App，Debug 下关闭 Hardened Runtime 避免库校验拦截
+        # The test bundle is injected into the host app; disable Hardened Runtime in Debug to avoid library validation blocking it
         Debug:
           ENABLE_HARDENED_RUNTIME: NO
         Release:

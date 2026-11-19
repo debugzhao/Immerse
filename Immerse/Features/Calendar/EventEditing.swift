@@ -1,26 +1,26 @@
 import Foundation
 
-/// 拖拽方式
+/// Drag mode
 enum EventDragMode: Sendable {
     case move
     case resizeTop
     case resizeBottom
 }
 
-/// 拖拽移动 / 调整时长的计算。纯函数，便于单元测试。
+/// Computation for drag-to-move / resize. Pure function, easy to unit test.
 enum EventEditing {
-    /// 最短时长
+    /// Minimum duration
     static let minimumDuration: TimeInterval = TimeInterval(CalendarMetrics.snapMinutes * 60)
 
     /// - Parameters:
-    ///   - minutes: 竖直方向位移对应的分钟数（已吸附）
-    ///   - days: 水平方向跨了几天（只对移动有效）
+    ///   - minutes: vertical offset in minutes (already snapped)
+    ///   - days: days spanned horizontally (only applies to moves)
     static func apply(_ mode: EventDragMode, to task: TaskSnapshot, minutes: Int, days: Int,
                       calendar: Calendar = .app) -> TaskSnapshot {
         var result = task
 
         if task.isAllDay {
-            // 全天任务只能整天移动
+            // All-day tasks can only move by whole days
             guard mode == .move, days != 0 else { return task }
             result.start = calendar.date(byAdding: .day, value: days, to: task.start) ?? task.start
             result.end = task.end.flatMap { calendar.date(byAdding: .day, value: days, to: $0) }
@@ -35,7 +35,7 @@ enum EventEditing {
             let shiftedStart = (calendar.date(byAdding: .day, value: days, to: interval.start) ?? interval.start)
                 .addingTimeInterval(delta)
             result.start = shiftedStart
-            // 只有开始时间的任务移动后仍然只有开始时间
+            // A task with only a start time still has only a start time after moving
             result.end = task.end.map { _ in shiftedStart.addingTimeInterval(interval.duration) }
 
         case .resizeBottom:
@@ -48,7 +48,7 @@ enum EventEditing {
         return result
     }
 
-    /// 编辑开始时间时保持时长不变（和系统日历一致）
+    /// Keep the duration unchanged when editing the start time (matches the system Calendar)
     static func movingStart(of task: TaskSnapshot, to newStart: Date, calendar: Calendar = .app) -> TaskSnapshot {
         var result = task
         if let end = task.end {

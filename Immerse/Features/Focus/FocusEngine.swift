@@ -3,11 +3,11 @@ import Foundation
 import Observation
 import OSLog
 
-/// 专注引擎：开始 / 暂停 / 延长 / 结束一次专注，驱动倒计时、通知和勿扰。
+/// Focus engine: start / pause / extend / end a focus session, driving the countdown, notifications, and Do Not Disturb.
 ///
-/// 状态机：idle →(start)→ running ⇄(pause/resume)⇄ paused
-///                         running →(剩余 ≤ 0)→ timeUp →(完成 / 延长)→ idle / running
-/// 任何时候最多一个进行中的专注。
+/// State machine: idle →(start)→ running ⇄(pause/resume)⇄ paused
+///                                    running →(remaining ≤ 0)→ timeUp →(complete / extend)→ idle / running
+/// At most one active focus session at any time.
 @MainActor
 @Observable
 final class FocusEngine {
@@ -20,15 +20,15 @@ final class FocusEngine {
 
     private(set) var phase: Phase = .idle
     private(set) var session: FocusSessionState?
-    /// 每秒刷新一次，界面读取它来更新倒计时
+    /// Refreshed every second; the UI reads it to update the countdown
     private(set) var now: Date
-    /// 已有专注时又点了开始：等待用户确认是否切换
+    /// Start was tapped while a session already exists: waiting for the user to confirm the switch
     var pendingSwitch: TaskSnapshot?
-    /// 勿扰开关失败时的提示
+    /// Message shown when toggling Do Not Disturb fails
     private(set) var dndWarning: String?
-    /// 是否显示全屏沉浸视图
+    /// Whether to show the full-screen immersive view
     var isImmersivePresented = false
-    /// 专注记录版本号：有专注结束时递增，统计和日历据此刷新
+    /// Focus record version: incremented when a session ends; stats and calendar refresh based on it
     private(set) var recordsRevision = 0
 
     @ObservationIgnored private let taskStore: TaskStore
@@ -36,18 +36,18 @@ final class FocusEngine {
     @ObservationIgnored private let notifier: FocusNotifying
     @ObservationIgnored private let dnd: DoNotDisturbServicing
     @ObservationIgnored private let clock: () -> Date
-    /// 进度提醒的百分比（全局设置，比如 [50, 80]）
+    /// Progress reminder percentages (global setting, e.g. [50, 80])
     @ObservationIgnored private let progressMilestones: () -> [Int]
-    /// 本次专注已经提醒过的进度，延长后不再重复提醒
+    /// Progress points already reminded for this session; not repeated after extending
     @ObservationIgnored private var notifiedMilestones: Set<Int> = []
-    /// 一次专注开始后的回调（用来在「时钟」里开倒计时）
+    /// Callback after a session starts (used to start a countdown in "Clock")
     @ObservationIgnored var onStarted: ((FocusSessionState) -> Void)?
     @ObservationIgnored private let logger = Logger(subsystem: "com.debugzhao.immerse", category: "Focus")
     @ObservationIgnored private var ticker: Task<Void, Never>?
     @ObservationIgnored private var activity: NSObjectProtocol?
-    /// 时间到的那一刻（专注记录的结束时间用它，而不是用户点按钮的时间）
+    /// The moment time ran out (the record's end time uses this, not when the user tapped the button)
     @ObservationIgnored private var timeUpAt: Date?
-    /// 由时间戳推进的延长时长（秒）
+    /// Extended duration (seconds), advanced from timestamps
     static let extensionSeconds = 15 * 60
 
     init(taskStore: TaskStore, repository: FocusSessionRepository, notifier: FocusNotifying,
@@ -62,7 +62,7 @@ final class FocusEngine {
         self.now = clock()
     }
 
-    // MARK: - 派生状态
+    // MARK: - Derived state
 
     var isActive: Bool { session != nil }
     var isPaused: Bool { phase == .paused }
@@ -72,7 +72,7 @@ final class FocusEngine {
 
     func isFocusing(on taskID: UUID) -> Bool { session?.taskID == taskID }
 
-    /// 与 interval 有交集的已结束专注记录
+    /// Finished focus records that overlap with interval
     func records(in interval: DateInterval) -> [FocusRecord] {
         _ = recordsRevision
         do {
@@ -83,9 +83,9 @@ final class FocusEngine {
         }
     }
 
-    // MARK: - 开始
+    // MARK: - Start
 
-    /// 用户点「开始专注」：已有其它专注时先让用户确认
+    /// User taps "开始专注" (Start Focus): if another session exists, ask the user to confirm first
     func requestStart(_ task: TaskSnapshot) {
         if let session, session.taskID != task.id {
             pendingSwitch = task
@@ -98,7 +98,7 @@ final class FocusEngine {
         start(task)
     }
 
-    /// 结束当前专注（算提前完成前的放弃），开始新的
+    /// End the current session (counted as abandoned, not as early completion) and start a new one
     func confirmSwitch() {
         guard let task = pendingSwitch else { return }
         pendingSwitch = nil
@@ -127,7 +127,7 @@ final class FocusEngine {
         onStarted?(state)
     }
 
-    // MARK: - 暂停 / 继续 / 延长
+    // MARK: - Pause / resume / extend
 
     func togglePause() {
         switch phase {
@@ -159,13 +159,13 @@ final class FocusEngine {
         rescheduleBackup()
     }
 
-    /// +15 分钟。时间到之后延长会回到计时，并重新开启勿扰
+    /// +15 minutes. Extending after time is up returns to timing and re-enables Do Not Disturb
     func extend(seconds: Int = FocusEngine.extensionSeconds) {
         guard var state = session else { return }
         let wasTimeUp = phase == .timeUp
         state.plannedSeconds += seconds
         if wasTimeUp {
-            // 从时间到的那一刻接着算，用户犹豫的这段时间不计入
+            // Continue counting from the moment time ran out; the time the user spent hesitating does not count
             let current = clock()
             if let timeUpAt { state.pausedSeconds += Int(current.timeIntervalSince(timeUpAt).rounded()) }
             timeUpAt = nil
@@ -179,19 +179,19 @@ final class FocusEngine {
         if phase == .running { rescheduleBackup() }
     }
 
-    // MARK: - 结束
+    // MARK: - End
 
-    /// 时间到后点「标记完成」
+    /// Tap "标记完成" (Mark Complete) after time is up
     func complete() {
         finish(.completed)
     }
 
-    /// 时间没到，提前完成
+    /// Finished early, before time is up
     func finishEarly() {
         finish(.finishedEarly)
     }
 
-    /// 放弃：任务状态改回未开始
+    /// Abandon: the task status reverts to not started
     func abandon() {
         finish(.abandoned)
     }
@@ -215,17 +215,17 @@ final class FocusEngine {
         stopTicking()
         notifier.cancelBackup()
         notifier.cancelProgress()
-        // 时间到时已经关过勿扰了
+        // Do Not Disturb was already turned off when time ran out
         if !wasTimeUp { setDoNotDisturb(false) }
     }
 
-    // MARK: - 计时
+    // MARK: - Timer
 
-    /// 每秒调用；睡眠唤醒后也会立即调用一次
+    /// Called every second; also called immediately after waking from sleep
     func tick() {
         now = clock()
         guard phase == .running, let session else { return }
-        // 记下已经过了的进度点（通知由系统按时发出，这里只做记录）
+        // Record the progress points already passed (the system delivers notifications on time; this only records)
         let percent = session.progress(at: now) * 100
         for milestone in progressMilestones() where Double(milestone) <= percent {
             notifiedMilestones.insert(milestone)
@@ -241,7 +241,7 @@ final class FocusEngine {
         timeUpAt = min(moment, clock())
         stopTicking()
         let title = session.taskTitle
-        // 必须先关勿扰再提醒，否则提醒本身会被勿扰静音
+        // Must turn off Do Not Disturb before notifying, otherwise the notification itself would be silenced
         Task {
             await deactivateDoNotDisturb(timeout: .seconds(3))
             notifier.postTimeUp(title: title)
@@ -258,7 +258,7 @@ final class FocusEngine {
             }
         }
         if activity == nil {
-            // 防止 App Nap 拖慢计时器；不阻止系统睡眠
+            // Prevent App Nap from slowing the timer; does not block system sleep
             activity = ProcessInfo.processInfo.beginActivity(
                 options: .userInitiatedAllowingIdleSystemSleep, reason: "专注计时")
         }
@@ -273,9 +273,9 @@ final class FocusEngine {
         }
     }
 
-    // MARK: - 恢复
+    // MARK: - Restore
 
-    /// App 启动时调用：恢复未结束的专注；若已超时，补上「时间到」的处理
+    /// Called at app launch: restores an unfinished session; if it is already overdue, runs the "time up" handling
     func restore() {
         let state: FocusSessionState?
         do {
@@ -285,7 +285,7 @@ final class FocusEngine {
             state = nil
         }
         guard let state else {
-            // 没有进行中的专注，但勿扰还是 App 打开的（比如上次崩溃了）：关掉
+            // No active session, but Do Not Disturb is still on from this app (e.g. it crashed last run): turn it off
             if dnd.isActivatedByApp { setDoNotDisturb(false) }
             return
         }
@@ -303,7 +303,7 @@ final class FocusEngine {
         }
     }
 
-    // MARK: - 通知动作
+    // MARK: - Notification actions
 
     func handle(_ action: FocusNotificationAction) {
         switch action {
@@ -312,9 +312,9 @@ final class FocusEngine {
         }
     }
 
-    // MARK: - 私有
+    // MARK: - Private
 
-    /// 重新安排「时间到」兜底通知和进度提醒（开始、继续、延长、恢复时调用）
+    /// Reschedule the "time up" fallback notification and progress reminders (called on start, resume, extend, restore)
     private func rescheduleBackup() {
         notifier.cancelBackup()
         notifier.cancelProgress()
@@ -327,7 +327,7 @@ final class FocusEngine {
             guard !notifiedMilestones.contains(percent),
                   let date = session.moment(atProgress: Double(percent) / 100, now: current) else { continue }
             if date <= current {
-                // 已经过了（比如重启 App 恢复时）：不补发
+                // Already passed (e.g. when restoring after an app restart): do not resend
                 notifiedMilestones.insert(percent)
                 continue
             }
@@ -356,14 +356,14 @@ final class FocusEngine {
                 if on { try await dnd.activate() } else { try await dnd.deactivate() }
                 dndWarning = nil
             } catch {
-                // 勿扰失败只提示，不影响计时
+                // A Do Not Disturb failure only shows a message; it does not affect timing
                 dndWarning = on ? "开启勿扰失败：\(error.localizedDescription)" : "关闭勿扰失败：\(error.localizedDescription)"
                 logger.error("\(self.dndWarning ?? "", privacy: .public)")
             }
         }
     }
 
-    /// 关闭勿扰，最多等 timeout；超时就取消（快捷指令进程会被终止），不再等它
+    /// Turn off Do Not Disturb, waiting at most timeout; on timeout, cancel (the Shortcuts process gets killed) and stop waiting
     private func deactivateDoNotDisturb(timeout: Duration) async {
         guard dnd.isActivatedByApp else { return }
         let work = Task { try? await dnd.deactivate() }

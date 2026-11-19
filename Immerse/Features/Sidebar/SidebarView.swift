@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// 左侧栏：迷你月历 + 今日任务 + 筛选。背景由 NavigationSplitView 提供系统侧栏毛玻璃。
+/// Left sidebar: mini month calendar + today's tasks + filters. The system sidebar vibrancy comes from NavigationSplitView.
 struct SidebarView: View {
     var body: some View {
         ScrollView {
@@ -16,7 +16,7 @@ struct SidebarView: View {
     }
 }
 
-/// 侧栏分区标题
+/// Sidebar section title
 struct SidebarSectionHeader: View {
     let title: String
     var trailing: String?

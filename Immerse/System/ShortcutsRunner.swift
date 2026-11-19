@@ -1,13 +1,13 @@
 import Foundation
 
-/// 调用系统 `/usr/bin/shortcuts` 命令行
+/// Invokes the system `/usr/bin/shortcuts` command-line tool
 enum ShortcutsRunner {
     static let executable = URL(fileURLWithPath: "/usr/bin/shortcuts")
 
     enum RunError: LocalizedError {
         case notInstalled
         case timedOut
-        /// 进程被系统信号终止（比如 SIGKILL），通常是安全策略拦截了快捷指令
+        /// Process terminated by a system signal (e.g. SIGKILL), usually because a security policy blocked the shortcut
         case killed(signal: Int32)
         case failed(code: Int32, message: String)
 
@@ -23,7 +23,7 @@ enum ShortcutsRunner {
         }
     }
 
-    /// 列出所有快捷指令的名称
+    /// Lists the names of all shortcuts
     static func list(timeout: Duration = .seconds(5)) async throws -> [String] {
         let output = try await execute(["list"], timeout: timeout)
         return output
@@ -32,7 +32,7 @@ enum ShortcutsRunner {
             .filter { !$0.isEmpty }
     }
 
-    /// 运行一个快捷指令。input 会写进临时文本文件，作为快捷指令的输入
+    /// Runs a shortcut. `input` is written to a temp text file and passed as the shortcut's input
     static func run(_ name: String, input: String? = nil, timeout: Duration = .seconds(5)) async throws {
         guard let input else {
             _ = try await execute(["run", name], timeout: timeout)
@@ -44,7 +44,7 @@ enum ShortcutsRunner {
         _ = try await execute(["run", name, "--input-path", file.path], timeout: timeout)
     }
 
-    /// 在后台执行，超时或任务被取消时终止进程
+    /// Runs in the background; terminates the process on timeout or task cancellation
     private static func execute(_ arguments: [String], timeout: Duration) async throws -> String {
         guard FileManager.default.isExecutableFile(atPath: executable.path) else { throw RunError.notInstalled }
 
@@ -57,7 +57,7 @@ enum ShortcutsRunner {
         process.standardError = stderr
 
         let box = ProcessBox(process)
-        // 边运行边读输出：等进程退出再读的话，输出超过管道缓冲区（64KB）时子进程会卡在写入上永远不退出
+        // Read output while the process runs: if we waited for exit first, output over the pipe buffer (64KB) would block the child on write and it would never exit
         let reading = DispatchGroup()
         let collected = OutputBox()
         for (pipe, isError) in [(stdout, false), (stderr, true)] {
@@ -90,13 +90,13 @@ enum ShortcutsRunner {
                     try process.run()
                 } catch {
                     process.terminationHandler = nil
-                    // 进程没起来，关掉写端让读取线程结束
+                    // Process failed to start: close the write end so the reader thread finishes
                     try? stdout.fileHandleForWriting.close()
                     try? stderr.fileHandleForWriting.close()
                     continuation.resume(throwing: error)
                     return
                 }
-                // 超时看门狗
+                // Timeout watchdog
                 DispatchQueue.global().asyncAfter(deadline: .now() + timeout.timeInterval) {
                     box.timeOut()
                 }
@@ -119,7 +119,7 @@ private final class OutputBox: @unchecked Sendable {
     var values: (String, String) { lock.withLock { (out, err) } }
 }
 
-/// 让 Process 能安全地在取消回调和看门狗之间共享
+/// Lets Process be shared safely between the cancellation handler and the watchdog
 private final class ProcessBox: @unchecked Sendable {
     private let process: Process
     private let lock = NSLock()

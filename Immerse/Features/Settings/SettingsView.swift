@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// 设置窗口（⌘,）
+/// Settings window (⌘,)
 struct SettingsView: View {
     var body: some View {
         TabView {
@@ -52,7 +52,7 @@ private struct DoNotDisturbSettingsTab: View {
     }
 }
 
-/// 提醒：专注进度、每日复盘、系统时钟倒计时
+/// Reminders: focus progress, daily review, system clock countdown
 private struct ReminderSettingsTab: View {
     @Environment(SettingsStore.self) private var settings
     @Environment(ClockTimerService.self) private var clockTimer
@@ -181,7 +181,7 @@ private struct ReminderSettingsTab: View {
         .foregroundStyle(.secondary)
     }
 
-    /// 提醒时间：设置里存的是分钟数，DatePicker 需要 Date
+    /// Reminder time: stored in settings as minutes, but DatePicker needs a Date
     private var reviewTime: Binding<Date> {
         Binding(
             get: { Calendar.app.startOfDay(for: .now).addingTimeInterval(TimeInterval(settings.dailyReviewMinutes * 60)) },

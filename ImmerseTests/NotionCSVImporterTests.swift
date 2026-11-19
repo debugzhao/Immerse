@@ -21,7 +21,7 @@ struct NotionCSVImporterTests {
     }
 
     @Test func 解析主线任务日程导出的CSV() throws {
-        // Notion 导出带 BOM、CRLF，备注里有逗号和换行
+        // Notion export has a BOM and CRLF, and notes contain commas and newlines
         let csv = "\u{FEFF}任务,Place,优先级,备注,完成,日期,状态\r\n"
             + "了解 Creative 链，完成第一天的任务,,紧急,,No,\"November 17, 2026\",已完成\r\n"
             + "阅读《谈判技巧》,图书馆,普通,\"第三章，\n做笔记\",No,\"November 18, 2026 3:00 PM (GMT+8) → 4:30 PM\",未开始\r\n"
@@ -49,7 +49,7 @@ struct NotionCSVImporterTests {
         let hackathon = result.tasks[2]
         #expect(hackathon.isAllDay)
         #expect(fmt(hackathon.end) == "11-20 00:00")
-        // 「完成」勾选时以它为准
+        // when the "完成" (done) checkbox is set, it takes precedence
         #expect(hackathon.status == .done)
     }
 

@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// 侧栏筛选：按优先级、状态过滤日历上显示的日程
+/// Sidebar filters: filter events shown on the calendar by priority and status
 struct FilterView: View {
     @Environment(CalendarStore.self) private var store
 

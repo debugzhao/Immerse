@@ -1,7 +1,7 @@
 import Charts
 import SwiftUI
 
-/// 专注统计窗口：今日 / 本周概览、最近 7 天柱状图、本周专注最多的任务
+/// Focus stats window: today / this week overview, last-7-days bar chart, most-focused tasks this week
 struct StatsView: View {
     @Environment(FocusEngine.self) private var engine
     @Environment(CalendarStore.self) private var store
@@ -83,7 +83,7 @@ struct StatsView: View {
         let calendar = store.calendar
         let today = calendar.startOfDay(for: .now)
         let weekStart = calendar.dateInterval(of: .weekOfYear, for: .now)?.start ?? today
-        // 统计连续天数时最多回看 60 天
+        // Look back at most 60 days when counting the streak
         let from = min(calendar.date(byAdding: .day, value: -60, to: today) ?? today, weekStart)
         let to = calendar.date(byAdding: .day, value: 1, to: today) ?? today
         return FocusStats(records: engine.records(in: DateInterval(start: from, end: to)), now: .now, calendar: calendar)
@@ -106,7 +106,7 @@ struct StatsView: View {
     }
 }
 
-/// 侧栏里的专注小结，点击打开统计窗口
+/// Focus summary in the sidebar; click to open the stats window
 struct FocusSummaryView: View {
     @Environment(FocusEngine.self) private var engine
     @Environment(CalendarStore.self) private var store

@@ -1,13 +1,13 @@
 import Foundation
 
-/// 导入 Notion「主线任务日程」导出的 CSV（数据库 ⋯ → 导出 → Markdown & CSV）。
+/// Imports a CSV exported from the Notion "主线任务日程" database (database ⋯ → Export → Markdown & CSV).
 ///
-/// 字段映射：任务 → 标题，日期 → 开始/结束/全天，优先级，状态（「完成」复选框为 Yes 时视为已完成），备注，Place → 地点。
-/// 日期支持 Notion 常见的几种导出格式，包括时间段「→」和时区后缀「(GMT+8)」。
+/// Field mapping: 任务 (task) → title, 日期 (date) → start/end/all-day, 优先级 (priority), 状态 (status; the "完成" checkbox being Yes means done), 备注 (notes), Place → location.
+/// Dates support the common Notion export formats, including ranges with "→" and timezone suffixes like "(GMT+8)".
 enum NotionCSVImporter {
     struct Result: Equatable {
         var tasks: [TaskSnapshot]
-        /// 跳过的行及原因（第几行，从 1 开始，不含表头）
+        /// Skipped rows and reasons (row number, 1-based, excluding the header)
         var skipped: [(row: Int, reason: String)]
 
         static func == (lhs: Result, rhs: Result) -> Bool {
@@ -77,14 +77,14 @@ enum NotionCSVImporter {
         return result
     }
 
-    /// 去掉和已有日程重复的（标题 + 开始时间相同）
+    /// Drop events that duplicate existing ones (same title + start time)
     static func removingDuplicates(_ tasks: [TaskSnapshot], existing: [TaskSnapshot]) -> [TaskSnapshot] {
         let keys = Set(existing.map { "\($0.title)|\($0.start.timeIntervalSince1970)" })
         return tasks.filter { !keys.contains("\($0.title)|\($0.start.timeIntervalSince1970)") }
     }
 }
 
-/// Notion 导出的日期文本
+/// Date text exported by Notion
 enum NotionDate {
     struct Value: Equatable {
         var start: Date
@@ -92,11 +92,11 @@ enum NotionDate {
         var isAllDay: Bool
     }
 
-    /// 支持：
+    /// Supported:
     /// - November 17, 2026 / Nov 17, 2026 / 2026/11/17 / 2026-11-17 / 2026年11月17日
-    /// - 带时间：November 17, 2026 3:00 PM / 2026/11/17 15:00
-    /// - 区间：A → B，B 可以只写时间（同一天）
-    /// - 时区后缀：(GMT+8) / (UTC)
+    /// - With time: November 17, 2026 3:00 PM / 2026/11/17 15:00
+    /// - Range: A → B, where B may be just a time (same day)
+    /// - Timezone suffix: (GMT+8) / (UTC)
     static func parse(_ raw: String, calendar: Calendar, timeZone: TimeZone) -> Value? {
         var text = raw.replacingOccurrences(of: #"\s*\((?:GMT|UTC)[^)]*\)"#, with: "", options: .regularExpression)
         text = text.trimmingCharacters(in: .whitespaces)
@@ -110,7 +110,7 @@ enum NotionDate {
             if let full = parseOne(parts[1], calendar: calendar, timeZone: timeZone) {
                 end = full.date
             } else if let time = parseTime(parts[1]) {
-                // 「3:00 PM → 4:00 PM」：结束只写了时间，和开始同一天
+                // "3:00 PM → 4:00 PM": the end has only a time, on the same day as the start
                 end = calendar.date(bySettingHour: time.hour, minute: time.minute, second: 0, of: first.date)
             }
         }
@@ -161,7 +161,7 @@ enum NotionDate {
     }
 }
 
-/// 最小 CSV 解析：支持引号包裹、引号转义（""）、字段内换行、BOM、CRLF
+/// Minimal CSV parser: supports quoted fields, escaped quotes (""), newlines within fields, BOM, CRLF
 enum CSV {
     static func parse(_ text: String) -> [[String]] {
         var rows: [[String]] = []

@@ -1,7 +1,7 @@
 import Foundation
 
-/// 任务优先级，沿用 Notion「主线任务日程」的三档。
-/// rawValue 越小越优先，同一时段内按它排序。
+/// Task priority, following the three levels of the Notion "Main Task Schedule".
+/// A smaller rawValue means higher priority; tasks in the same time slot are sorted by it.
 enum Priority: Int, Codable, CaseIterable, Comparable, Identifiable, Sendable {
     case urgent = 0
     case important = 1

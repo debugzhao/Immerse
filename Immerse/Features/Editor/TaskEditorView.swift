@@ -1,8 +1,8 @@
 import SwiftUI
 
-/// Notion 风格的日程弹窗：居中卡片 + 大标题 + 属性列表 + 备注正文。新建和编辑共用一套表单。
-/// - 新建：`store.draft` 不为空时出现；⌘↩ 或在标题里回车创建，Esc 或点外面关闭（不创建，内容保留到下次）
-/// - 编辑：`store.editingTaskID` 不为空时出现；改动立即保存（可撤销），Esc 或点外面关闭
+/// Notion-style event sheet: centered card + large title + property list + notes body. Create and edit share one form.
+/// - Create: appears when `store.draft` is non-nil; ⌘↩ or Return in the title creates, Esc or clicking outside closes (nothing created, content kept until next time)
+/// - Edit: appears when `store.editingTaskID` is non-nil; changes save immediately (undoable), Esc or clicking outside closes
 struct TaskEditorOverlay: View {
     @Environment(CalendarStore.self) private var store
 
@@ -23,9 +23,9 @@ struct TaskEditorOverlay: View {
     }
 }
 
-// MARK: - 弹窗外壳
+// MARK: - Sheet shell
 
-/// 半透明遮罩 + 居中的毛玻璃卡片
+/// Translucent scrim + centered frosted-glass card
 private struct EditorModal<Content: View>: View {
     let height: CGFloat
     let onDismiss: () -> Void
@@ -47,7 +47,7 @@ private struct EditorModal<Content: View>: View {
     }
 }
 
-// MARK: - 新建
+// MARK: - Create
 
 private struct TaskCreateCard: View {
     let height: CGFloat
@@ -55,7 +55,7 @@ private struct TaskCreateCard: View {
     @Environment(CalendarStore.self) private var store
     @Environment(TaskStore.self) private var taskStore
     @State private var task: TaskSnapshot
-    /// 内容是从上次没保存的草稿恢复的
+    /// Content was restored from the last unsaved draft
     @State private var isRestored: Bool
     @State private var didCreate = false
     @FocusState private var isTitleFocused: Bool
@@ -104,15 +104,15 @@ private struct TaskCreateCard: View {
         }
         .onAppear {
             isTitleFocused = true
-            // 菜单里的 ⌘↩ 也是「开始专注」，弹窗打开时让它改为创建
+            // ⌘↩ in the menu also means "Start Focus"; make it create while the sheet is open
             store.submitDraft = create
         }
         .onDisappear {
             store.submitDraft = nil
-            // 不管是 Esc、点取消还是点外面，没创建就把填写的内容留着
+            // Whether closed by Esc, Cancel, or clicking outside, keep what was filled in if nothing was created
             if !didCreate { store.keepUnsaved(task) }
         }
-        // 改时间时，日历上的虚线草稿块跟着移动
+        // When the time changes, the dashed draft block on the calendar follows
         .onChange(of: task) { _, task in
             guard store.draft != nil else { return }
             let end = task.displayInterval(in: store.calendar).end
@@ -135,7 +135,7 @@ private struct TaskCreateCard: View {
         store.draft = nil
     }
 
-    /// 不要恢复的内容：清空填写项，时间保留
+    /// Content not to restore: clear the filled-in fields, keep the time
     private func clearRestored() {
         task = TaskSnapshot(title: "", start: task.start, end: task.end, isAllDay: task.isAllDay)
         isRestored = false
@@ -143,13 +143,13 @@ private struct TaskCreateCard: View {
         isTitleFocused = true
     }
 
-    /// 点弹窗外面：只关闭不创建，填写的内容留到下次（onDisappear 里保存）
+    /// Clicking outside the sheet: close without creating; filled-in content is kept for next time (saved in onDisappear)
     private func dismiss() {
         cancel()
     }
 }
 
-// MARK: - 编辑
+// MARK: - Edit
 
 private struct TaskEditCard: View {
     let taskID: UUID
@@ -179,7 +179,7 @@ private struct TaskEditCard: View {
             }
         }
         .onAppear(perform: reload)
-        // 外部修改（拖拽、撤销、右键菜单）后同步；日程被删掉就关闭
+        // Sync after external changes (drag, undo, context menu); close if the event was deleted
         .onChange(of: taskStore.revision) { _, _ in reload() }
         .onDisappear { taskStore.breakCoalescing() }
     }
@@ -233,7 +233,7 @@ private struct TaskEditCard: View {
     private func commit(_ updated: TaskSnapshot) {
         guard let previous = draft, previous != updated else { return }
         draft = updated
-        // 只改了文字字段时合并撤销，避免每敲一个字就是一步
+        // When only text fields changed, coalesce undo so each keystroke is not its own step
         var textOnly = previous
         textOnly.title = updated.title
         textOnly.notes = updated.notes
@@ -243,7 +243,7 @@ private struct TaskEditCard: View {
     }
 }
 
-// MARK: - 顶栏
+// MARK: - Top bar
 
 private struct EditorTopBar<Trailing: View>: View {
     let onClose: () -> Void
@@ -271,9 +271,9 @@ private struct EditorTopBar<Trailing: View>: View {
     }
 }
 
-// MARK: - 表单
+// MARK: - Form
 
-/// 大标题 + 属性列表 + 备注
+/// Large title + property list + notes
 private struct TaskEditorForm: View {
     @Binding var task: TaskSnapshot
     var isTitleFocused: FocusState<Bool>.Binding
@@ -286,7 +286,7 @@ private struct TaskEditorForm: View {
             TextField("无标题", text: $task.title)
                 .textFieldStyle(.plain)
                 .font(.system(size: 28, weight: .bold))
-                // 大字号的 plain TextField 偶尔测不准高度会被裁掉，固定一个高度
+                // A large plain TextField sometimes mismeasures its height and gets clipped; pin a fixed height
                 .frame(height: 40)
                 .focused(isTitleFocused)
                 .onSubmit(onSubmitTitle)
@@ -330,7 +330,7 @@ private struct TaskEditorForm: View {
     }
 }
 
-/// 一行属性：左边图标 + 名称，右边值；悬停时整行轻微高亮
+/// One property row: icon + name on the left, value on the right; the whole row highlights slightly on hover
 private struct PropertyRow<Content: View>: View {
     let icon: String
     let title: String
@@ -361,7 +361,7 @@ private struct PropertyRow<Content: View>: View {
     }
 }
 
-/// 属性值按钮的统一样式：悬停加浅底
+/// Uniform style for property value buttons: light background on hover
 private struct HoverButtonStyle: ButtonStyle {
     @State private var isHovering = false
 
@@ -377,9 +377,9 @@ private struct HoverButtonStyle: ButtonStyle {
     }
 }
 
-// MARK: - 时间
+// MARK: - Time
 
-/// 时间行：日期只展示（跟随日历上选的那天），开始 / 结束时间用大按钮 + 15 分钟刻度列表选择
+/// Time row: the date is display-only (follows the day selected on the calendar); start / end times use large buttons + a 15-minute-step list
 private struct TimeProperty: View {
     @Binding var task: TaskSnapshot
     @Environment(CalendarStore.self) private var store
@@ -430,7 +430,7 @@ private struct TimeProperty: View {
         }
     }
 
-    /// 「11月18日 周三」，不是今年时带年份
+    /// "11月18日 周三", with the year included when it is not this year
     private var dayText: String {
         let c = calendar.dateComponents([.year, .month, .day], from: task.start)
         let day = "\(c.month ?? 0)月\(c.day ?? 0)日 \(TimeText.weekday(task.start, calendar: calendar))"
@@ -452,7 +452,7 @@ private struct TimeProperty: View {
                     updated.start = calendar.startOfDay(for: updated.start)
                     updated.end = nil
                 } else {
-                    // 全天改成定时：放到当天 9:00，时长 1 小时
+                    // All-day to timed: place at 9:00 that day, duration 1 hour
                     let start = calendar.date(bySettingHour: 9, minute: 0, second: 0, of: updated.start) ?? updated.start
                     updated.start = start
                     updated.end = start.addingTimeInterval(3600)
@@ -464,7 +464,7 @@ private struct TimeProperty: View {
     }
 }
 
-/// 大号的时间按钮，点开是可滚动的时间列表
+/// Large time button; opens a scrollable time list
 private struct TimeSlotButton: View {
     let title: String
     let options: [Date]
@@ -533,7 +533,7 @@ private struct TimeSlotButton: View {
                     .padding(6)
                 }
                 .onAppear {
-                    // 打开时把当前时间滚到中间
+                    // Scroll the current time to the middle when opened
                     let target = options.min { abs($0.timeIntervalSince(selected)) < abs($1.timeIntervalSince(selected)) }
                     if let target { proxy.scrollTo(target, anchor: .center) }
                 }
@@ -573,7 +573,7 @@ private struct TimeSlotButton: View {
     }
 }
 
-/// 时间列表行：悬停时浅色高亮（选中行已经是强调色，不再叠加）
+/// Time list row: light highlight on hover (the selected row already uses the accent color, so do not stack)
 private struct TimeRowButtonStyle: ButtonStyle {
     let isSelected: Bool
     @State private var isHovering = false
@@ -588,7 +588,7 @@ private struct TimeRowButtonStyle: ButtonStyle {
     }
 }
 
-// MARK: - 单选标签（优先级 / 状态）
+// MARK: - Single-select tags (priority / status)
 
 private struct Chip: View {
     let title: String
@@ -606,7 +606,7 @@ private struct Chip: View {
     }
 }
 
-/// Notion 式的单选：点标签弹出选项列表
+/// Notion-style single select: click the tag to pop up the option list
 private struct ChipPicker<Value: Hashable & Identifiable>: View {
     let options: [Value]
     @Binding var selection: Value
@@ -648,7 +648,7 @@ private struct ChipPicker<Value: Hashable & Identifiable>: View {
     }
 }
 
-// MARK: - 专注时长
+// MARK: - Focus duration
 
 private struct FocusMinutesProperty: View {
     @Binding var task: TaskSnapshot
@@ -712,7 +712,7 @@ private struct FocusMinutesProperty: View {
     }
 }
 
-// MARK: - 备注
+// MARK: - Notes
 
 private struct NotesEditor: View {
     @Binding var text: String

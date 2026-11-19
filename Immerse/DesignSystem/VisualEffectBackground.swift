@@ -1,8 +1,8 @@
 import AppKit
 import SwiftUI
 
-/// 包装 `NSVisualEffectView`。SwiftUI 的 Material 只能模糊窗口内的内容，
-/// 要透出桌面（behindWindow）的毛玻璃得用它。
+/// Wraps `NSVisualEffectView`. SwiftUI's Material can only blur content inside the window;
+/// frosted glass that shows the desktop through (behindWindow) needs this.
 struct VisualEffectBackground: NSViewRepresentable {
     var material: NSVisualEffectView.Material = .underWindowBackground
     var blendingMode: NSVisualEffectView.BlendingMode = .behindWindow

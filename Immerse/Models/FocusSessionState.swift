@@ -1,12 +1,12 @@
 import Foundation
 
-/// 专注结束的方式
+/// How a focus session ended
 enum FocusEndReason: String, Codable, CaseIterable, Sendable {
-    /// 计时自然结束，并标记完成
+    /// Timer ran out naturally; marked complete
     case completed
-    /// 时间没到，提前完成
+    /// Finished early, before time was up
     case finishedEarly
-    /// 放弃
+    /// Abandoned
     case abandoned
 
     var title: String {
@@ -18,11 +18,11 @@ enum FocusEndReason: String, Codable, CaseIterable, Sendable {
     }
 }
 
-/// 正在进行的专注（值类型）。
+/// A focus session in progress (value type).
 ///
-/// 计时只依赖时间戳，不依赖每秒累加：睡眠、App 被杀后重新打开，算出来的剩余时间都是对的。
-///   已用时长 = (暂停中 ? pausedAt : now) − startedAt − pausedSeconds
-///   剩余时长 = plannedSeconds − 已用时长
+/// Timing relies only on timestamps, not per-second accumulation: remaining time stays correct after sleep or relaunching a killed app.
+///   elapsed = (paused ? pausedAt : now) − startedAt − pausedSeconds
+///   remaining = plannedSeconds − elapsed
 struct FocusSessionState: Equatable, Sendable {
     var id = UUID()
     let taskID: UUID
@@ -43,18 +43,18 @@ struct FocusSessionState: Equatable, Sendable {
         TimeInterval(plannedSeconds) - elapsed(at: now)
     }
 
-    /// 按当前状态推算的结束时间（暂停中返回 nil）
+    /// Projected end time from the current state (nil while paused)
     func expectedEnd(at now: Date) -> Date? {
         guard !isPaused else { return nil }
         return now.addingTimeInterval(max(remaining(at: now), 0))
     }
 
-    /// 计时到点的那一刻（暂停时长已扣除）
+    /// The moment the timer hits zero (paused time already deducted)
     var plannedEnd: Date {
         startedAt.addingTimeInterval(TimeInterval(plannedSeconds + pausedSeconds))
     }
 
-    /// 专注进度到达 fraction（0~1）的时刻，按当前状态推算；暂停中返回 nil
+    /// The moment focus progress reaches fraction (0 to 1), projected from the current state; nil while paused
     func moment(atProgress fraction: Double, now: Date) -> Date? {
         guard !isPaused else { return nil }
         return now.addingTimeInterval(TimeInterval(plannedSeconds) * fraction - elapsed(at: now))
@@ -66,27 +66,27 @@ struct FocusSessionState: Equatable, Sendable {
     }
 }
 
-/// 已结束的专注记录，供统计和日历叠加显示
+/// A finished focus record, used for stats and the calendar overlay
 struct FocusRecord: Identifiable, Equatable, Sendable {
     let id: UUID
     let taskID: UUID?
     let taskTitle: String
     let startedAt: Date
     let endedAt: Date
-    /// 实际专注秒数（扣除暂停）
+    /// Actual focused seconds (excluding pauses)
     let focusedSeconds: Int
     let reason: FocusEndReason
 }
 
 enum DurationText {
-    /// 倒计时：「42:17」，超过一小时「1:02:03」
+    /// Countdown: "42:17", or "1:02:03" past an hour
     static func countdown(_ seconds: TimeInterval) -> String {
         let total = max(Int(seconds.rounded(.up)), 0)
         let h = total / 3600, m = total % 3600 / 60, s = total % 60
         return h > 0 ? String(format: "%d:%02d:%02d", h, m, s) : String(format: "%02d:%02d", m, s)
     }
 
-    /// 时长：「1小时25分」「45分钟」
+    /// Duration: "1小时25分" or "45分钟"
     static func minutes(_ seconds: Int) -> String {
         let minutes = seconds / 60
         if minutes >= 60 {

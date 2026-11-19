@@ -1,7 +1,7 @@
 import SwiftUI
 
-/// 日期栏下方的全天行：全天 / 跨天任务画成横条，多条时分道堆叠。
-/// 支持左右拖动整条移动日期；双击空白处新建全天日程。
+/// All-day row below the date bar: all-day / multi-day tasks drawn as horizontal bars, stacked in lanes when there are several.
+/// Drag left/right to move the whole bar to other dates; double-click empty space to create an all-day event.
 struct AllDayRowView: View {
     let days: [Date]
     let tasks: [TaskSnapshot]
@@ -35,7 +35,7 @@ struct AllDayRowView: View {
             GeometryReader { geometry in
                 let columnWidth = geometry.size.width / CGFloat(max(days.count, 1))
                 ZStack(alignment: .topLeading) {
-                    // 列分隔线 + 双击新建的热区，与下方时间网格对齐
+                    // Column dividers + double-click-to-create hot zones, aligned with the time grid below
                     HStack(spacing: 0) {
                         ForEach(days, id: \.self) { day in
                             Rectangle().fill(Palette.gridLine).frame(width: 0.5)
@@ -108,7 +108,7 @@ struct AllDayRowView: View {
         return tasks.compactMap { task in
             let interval = task.displayInterval(in: calendar)
             let startDay = calendar.dayOffset(from: first, to: interval.start)
-            // 半开区间的末尾是次日 0 点，减 1 秒落回最后一天
+            // The end of a half-open interval is midnight of the next day; subtract 1 second to land on the last day
             let endDay = calendar.dayOffset(from: first, to: interval.end.addingTimeInterval(-1))
             guard endDay >= 0, startDay < days.count else { return nil }
             return Bar(task: task, startDay: max(startDay, 0), endDay: min(endDay, days.count - 1))

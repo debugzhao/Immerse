@@ -1,31 +1,31 @@
 import AppKit
 import Foundation
 import OSLog
-// UNUserNotificationCenter 在 macOS 14 SDK 里还没标 Sendable，但它本身是线程安全的
+// UNUserNotificationCenter is not yet marked Sendable in the macOS 14 SDK, but it is thread-safe
 @preconcurrency import UserNotifications
 
-/// 专注相关的通知
+/// Focus-related notifications
 @MainActor
 protocol FocusNotifying: AnyObject {
     func requestAuthorizationIfNeeded() async
-    /// 兜底通知：App 被杀掉或卡住时，系统仍会在预计结束时间提醒
+    /// Fallback notification: if the app is killed or hangs, the system still alerts at the expected end time
     func scheduleBackup(at date: Date, title: String)
     func cancelBackup()
-    /// 时间到：立即发通知并播放提示音
+    /// Time is up: send a notification immediately and play a sound
     func postTimeUp(title: String)
-    /// 进度提醒（比如过半、80%），由系统按时发出
+    /// Progress reminders (e.g. halfway, 80%), delivered by the system on schedule
     func scheduleProgress(_ reminders: [FocusProgressReminder], title: String)
     func cancelProgress()
 }
 
-/// 一条进度提醒：专注到 percent% 时提醒，届时还剩 remainingSeconds
+/// A progress reminder: fires when focus reaches percent%, with remainingSeconds left at that point
 struct FocusProgressReminder: Equatable {
     let percent: Int
     let date: Date
     let remainingSeconds: Int
 }
 
-/// 通知上的快捷操作
+/// Quick actions on the notification
 enum FocusNotificationAction: String {
     case complete = "COMPLETE"
     case extend = "EXTEND_15"
@@ -38,9 +38,9 @@ final class NotificationService: NSObject, FocusNotifying {
 
     private let center = UNUserNotificationCenter.current()
     private let logger = Logger(subsystem: "com.debugzhao.immerse", category: "Notification")
-    /// 静默模式（测试、截图）：什么都不发
+    /// Silent mode (tests, screenshots): sends nothing
     private let isSilenced: Bool
-    /// 用户点了通知上的按钮
+    /// The user tapped a button on the notification
     var onAction: ((FocusNotificationAction) -> Void)?
 
     init(isSilenced: Bool = false) {
@@ -106,11 +106,11 @@ final class NotificationService: NSObject, FocusNotifying {
 
     nonisolated private static func progressID(_ percent: Int) -> String { "focus-progress-\(percent)" }
 
-    // MARK: - 每日复盘
+    // MARK: - Daily review
 
     private static let dailyReviewID = "daily-review"
 
-    /// 在指定时刻提醒今天还没完成的任务。同一个 identifier，重复安排会覆盖
+    /// Reminds about tasks still unfinished today at the given time. Same identifier, so rescheduling overwrites
     func scheduleDailyReview(at date: Date, title: String, body: String, calendar: Calendar) {
         guard !isSilenced else { return }
         let content = UNMutableNotificationContent()
@@ -148,7 +148,7 @@ final class NotificationService: NSObject, FocusNotifying {
     }
 
     private func add(_ content: UNNotificationContent, trigger: UNNotificationTrigger?) {
-        // 同一个 identifier：立即发的「时间到」会替换掉排队中的兜底通知，不会重复提醒
+        // Same identifier: the immediate "time is up" notification replaces the queued fallback, avoiding duplicate reminders
         let request = UNNotificationRequest(identifier: Self.requestID, content: content, trigger: trigger)
         center.add(request) { [logger] error in
             if let error {
@@ -159,7 +159,7 @@ final class NotificationService: NSObject, FocusNotifying {
 }
 
 extension NotificationService: UNUserNotificationCenterDelegate {
-    /// App 在前台时也显示横幅、播放声音
+    /// Show the banner and play sound even when the app is in the foreground
     nonisolated func userNotificationCenter(_ center: UNUserNotificationCenter,
                                             willPresent notification: UNNotification) async -> UNNotificationPresentationOptions {
         [.banner, .sound, .list]
@@ -172,14 +172,14 @@ extension NotificationService: UNUserNotificationCenterDelegate {
             if let action = FocusNotificationAction(rawValue: identifier) {
                 onAction?(action)
             } else {
-                // 点了通知本身：把 App 叫到前台
+                // tapped the notification itself: bring the app to the front
                 NSApp.activate(ignoringOtherApps: true)
             }
         }
     }
 }
 
-/// 测试用：记录调用
+/// For tests: records calls
 @MainActor
 final class RecordingNotifier: FocusNotifying {
     private(set) var backups: [Date] = []

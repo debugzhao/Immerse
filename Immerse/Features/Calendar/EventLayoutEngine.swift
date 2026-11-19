@@ -1,6 +1,6 @@
 import Foundation
 
-/// 时间网格里一个待排布的日程片段
+/// An event segment awaiting layout in the time grid
 struct LayoutItem: Sendable {
     let id: UUID
     let start: Date
@@ -8,19 +8,19 @@ struct LayoutItem: Sendable {
     let priority: Priority
 }
 
-/// 排布结果：位于第几列、所在簇共几列、向右占几列
+/// Layout result: which column it sits in, how many columns its cluster has, and how many columns it spans to the right
 struct LayoutPlacement: Equatable, Sendable {
     let column: Int
     let columnCount: Int
     let span: Int
 }
 
-/// 重叠日程排布算法（与 Google Calendar / Notion Calendar 同思路）。纯函数，便于单元测试。
+/// Overlapping-event layout algorithm (same approach as Google Calendar / Notion Calendar). Pure function, easy to unit test.
 ///
-/// 1. 按开始时间排序（同时开始的：优先级高的在前，长的在前）
-/// 2. 分簇：直接或间接重叠的日程归为一簇，簇内共享列数
-/// 3. 分列：放进第一个「已空出来」的列，没有就新开一列
-/// 4. 扩展：右侧相邻列在该时段空着的话，向右占满
+/// 1. Sort by start time (ties: higher priority first, then longer first)
+/// 2. Cluster: events that overlap directly or transitively form a cluster that shares a column count
+/// 3. Assign columns: put each event in the first column that has freed up, or open a new one
+/// 4. Expand: if adjacent columns to the right are empty during its span, extend rightward to fill them
 enum EventLayoutEngine {
     static func layout(_ items: [LayoutItem], minimumDuration: TimeInterval = 0) -> [UUID: LayoutPlacement] {
         struct Entry {
@@ -31,7 +31,7 @@ enum EventLayoutEngine {
             var column = 0
         }
 
-        // 太短的日程在视觉上也会占一个最小高度，按最小高度参与重叠判断，避免文字互相压住
+        // Very short events still render at a minimum height, so use that height for overlap checks to keep text from colliding
         let sorted = items
             .map { Entry(id: $0.id, start: $0.start, end: max($0.end, $0.start.addingTimeInterval(minimumDuration)), priority: $0.priority) }
             .sorted { a, b in
@@ -81,7 +81,7 @@ enum EventLayoutEngine {
         return result
     }
 
-    /// 全天行的分道：每个条目占据 [startDay, endDay]（闭区间，按列索引），返回各自所在的道。
+    /// Lane assignment for the all-day row: each item spans [startDay, endDay] (closed interval, by column index); returns the lane for each.
     static func allDayLanes(_ items: [(id: UUID, startDay: Int, endDay: Int)]) -> [UUID: Int] {
         let sorted = items.sorted { a, b in
             if a.startDay != b.startDay { return a.startDay < b.startDay }

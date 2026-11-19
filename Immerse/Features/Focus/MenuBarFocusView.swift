@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// 菜单栏图标旁的文字：专注中显示剩余时间，否则只显示图标
+/// Text next to the menu bar icon: shows remaining time while focusing, otherwise only the icon
 struct MenuBarLabel: View {
     @Environment(FocusEngine.self) private var engine
 
@@ -11,7 +11,7 @@ struct MenuBarLabel: View {
             case .timeUp: "checkmark.circle"
             default: "record.circle"
             }
-            // MenuBarExtra 的标签只认 Text / Image，用 Text 插值把图标和时间拼在一起
+            // MenuBarExtra labels only accept Text / Image; use Text interpolation to combine the icon and time
             Text("\(Image(systemName: symbol)) \(engine.phase == .timeUp ? "时间到" : DurationText.countdown(session.remaining(at: engine.now)))")
                 .monospacedDigit()
         } else {
@@ -20,7 +20,7 @@ struct MenuBarLabel: View {
     }
 }
 
-/// 点开菜单栏图标后的面板
+/// Panel shown when the menu bar icon is clicked
 struct MenuBarFocusView: View {
     @Environment(FocusEngine.self) private var engine
     @Environment(TaskStore.self) private var taskStore
@@ -100,7 +100,7 @@ struct MenuBarFocusView: View {
     }
 }
 
-/// 专注控制面板：任务名 + 倒计时 + 进度 + 操作按钮。菜单栏和沉浸视图共用
+/// Focus control panel: task name + countdown + progress + action buttons. Shared by the menu bar and immersive view
 struct FocusControlPanel: View {
     enum Style { case compact, immersive }
     let style: Style
@@ -176,7 +176,7 @@ struct FocusControlPanel: View {
     }
 }
 
-/// 时间到时浮在主窗口上的面板
+/// Panel floating over the main window when time is up
 struct FocusTimeUpOverlay: View {
     @Environment(FocusEngine.self) private var engine
 

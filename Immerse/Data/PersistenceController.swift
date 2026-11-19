@@ -1,14 +1,14 @@
 import Foundation
 import SwiftData
 
-/// 创建 SwiftData 容器。
+/// Creates the SwiftData container.
 enum PersistenceController {
-    /// 正在跑单元测试吗？测试会以宿主 App 的身份启动整个 App，这时不能碰真实数据。
+    /// Are unit tests running? Tests launch the whole app as the host app, so real data must not be touched.
     static var isRunningTests: Bool {
         ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil
     }
 
-    /// Debug 自截图模式：用内存数据库 + 示例数据，不碰真实数据
+    /// Debug self-screenshot mode: in-memory database + sample data, real data untouched
     static var isSnapshotMode: Bool {
         #if DEBUG
         ProcessInfo.processInfo.environment["IMMERSE_SNAPSHOT"] != nil
@@ -17,7 +17,7 @@ enum PersistenceController {
         #endif
     }
 
-    /// 不落盘：测试和截图都用内存数据库
+    /// No persistence: tests and screenshots both use an in-memory database
     static var isEphemeral: Bool { isRunningTests || isSnapshotMode }
 
     static func makeContainer() throws -> ModelContainer {
@@ -26,8 +26,8 @@ enum PersistenceController {
         if isEphemeral {
             configuration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: true)
         } else {
-            // 没开沙盒时，默认路径是 ~/Library/Application Support/default.store，
-            // 所有不开沙盒的 SwiftData App 都会写这个文件，必须换成 App 专属目录
+            // Without the sandbox, the default path is ~/Library/Application Support/default.store,
+            // which every non-sandboxed SwiftData app writes to, so it must be moved to an app-specific directory
             configuration = ModelConfiguration(schema: schema, url: try storeURL())
         }
         return try ModelContainer(for: schema, configurations: configuration)

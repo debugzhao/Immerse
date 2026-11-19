@@ -1,6 +1,6 @@
 import Foundation
 
-/// 专注统计（纯计算，便于测试）
+/// Focus statistics (pure computation, easy to test)
 struct FocusStats: Equatable {
     struct Day: Identifiable, Equatable {
         let date: Date
@@ -15,23 +15,23 @@ struct FocusStats: Equatable {
         var id: String { title }
     }
 
-    /// 最近 7 天（含今天）每天的专注分钟数，按日期升序
+    /// Focus minutes per day for the last 7 days (including today), ascending by date
     let lastSevenDays: [Day]
     let todayMinutes: Int
     let weekMinutes: Int
     let weekSessions: Int
-    /// 本周完成（含提前完成）的次数
+    /// Completions this week (including early completions)
     let weekCompleted: Int
-    /// 本周按任务汇总，时长倒序，最多 5 个
+    /// This week's totals per task, descending by duration, at most 5
     let topTasks: [TaskTotal]
-    /// 连续有专注记录的天数（截至今天；今天还没专注时从昨天算起）
+    /// Consecutive days with focus records (up to today; if no focus yet today, counted from yesterday)
     let streakDays: Int
 
     var weekCompletionRate: Double {
         weekSessions == 0 ? 0 : Double(weekCompleted) / Double(weekSessions)
     }
 
-    /// - Parameter records: 至少覆盖最近 7 天和本周的记录
+    /// - Parameter records: records covering at least the last 7 days and this week
     init(records: [FocusRecord], now: Date, calendar: Calendar) {
         let today = calendar.startOfDay(for: now)
 
@@ -74,7 +74,7 @@ struct FocusStats: Equatable {
         return Array(totals.prefix(5))
     }
 
-    /// 记录落在 interval 内的专注秒数。暂停时长按比例扣除（记录里只有总暂停时长，不知道具体在哪一段）
+    /// Focus seconds of a record that fall within interval. Pause time is deducted proportionally (the record only has total pause duration, not which segments were paused)
     private static func focusedSeconds(_ record: FocusRecord, within interval: DateInterval) -> Int {
         let total = record.endedAt.timeIntervalSince(record.startedAt)
         guard total > 0 else { return 0 }

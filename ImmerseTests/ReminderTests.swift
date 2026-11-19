@@ -50,7 +50,7 @@ struct ProgressReminderTests {
         await settle()
         clock.advance(minutes: 35)
         engine.tick()
-        engine.extend()   // 计划变成 75 分钟：50% 在 37.5 分钟，但已经提醒过
+        engine.extend()   // plan becomes 75 minutes: 50% is at 37.5 minutes, but it was already reminded
         #expect(notifier.progress.map(\.percent) == [80])
     }
 

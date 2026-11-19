@@ -1,29 +1,29 @@
 import Foundation
 
-/// 任务的值类型快照。
+/// Value-type snapshot of a task.
 ///
-/// 数据层之上（Store、视图）只接触这个类型，不直接持有 SwiftData 的 `@Model` 对象：
-/// 一来视图层不会因为托管对象的生命周期出问题，二来以后换存储（iCloud / Notion 同步）时上层不用改。
+/// Layers above the data layer (stores, views) only touch this type and never hold SwiftData `@Model` objects directly:
+/// first, views avoid managed-object lifecycle problems; second, swapping storage later (iCloud / Notion sync) needs no upper-layer changes.
 struct TaskSnapshot: Identifiable, Hashable, Sendable {
     var id: UUID = UUID()
     var title: String
     var start: Date
-    /// 全天任务：最后一天（含）；定时任务：结束时间。nil 表示只有开始时间。
+    /// All-day task: last day (inclusive); timed task: end time. nil means start time only.
     var end: Date?
     var isAllDay: Bool
     var priority: Priority = .normal
     var status: TaskStatus = .todo
     var notes: String = ""
     var place: String?
-    /// 计划专注时长（分钟），nil 时由日期区间推导。
+    /// Planned focus duration (minutes); derived from the date range when nil.
     var plannedMinutes: Int?
 
-    /// 全天任务、或只有开始时间的任务，专注时长的兜底值。
+    /// Fallback focus duration for all-day tasks or tasks with only a start time.
     static let defaultFocusMinutes = 60
-    /// 只有开始时间的定时任务，在日历上至少画这么长。
+    /// Minimum length drawn on the calendar for a timed task with only a start time.
     static let defaultDisplayMinutes = 30
 
-    /// 在日历上占据的半开区间 [start, end)。全天任务覆盖从首日 0 点到末日次日 0 点。
+    /// Half-open interval [start, end) occupied on the calendar. An all-day task spans from midnight of the first day to midnight after the last day.
     func displayInterval(in calendar: Calendar) -> DateInterval {
         if isAllDay {
             let first = calendar.startOfDay(for: start)
@@ -35,7 +35,7 @@ struct TaskSnapshot: Identifiable, Hashable, Sendable {
         return DateInterval(start: start, end: max(end ?? fallback, start))
     }
 
-    /// 点击「开始专注」时使用的时长：显式设置 > 日期区间 > 默认 60 分钟。
+    /// Duration used when tapping "Start Focus": explicit setting > date range > default 60 minutes.
     var focusMinutes: Int {
         if let plannedMinutes, plannedMinutes > 0 { return plannedMinutes }
         if !isAllDay, let end, end > start {
@@ -46,7 +46,7 @@ struct TaskSnapshot: Identifiable, Hashable, Sendable {
 }
 
 extension DateInterval {
-    /// 按半开区间判断是否相交：首尾相接不算重叠；零时长区间落在 other 内也算。
+    /// Half-open interval overlap check: touching endpoints don't count as overlap; a zero-length interval inside `other` does.
     func overlapsHalfOpen(_ other: DateInterval) -> Bool {
         if duration == 0 {
             return start >= other.start && start < other.end

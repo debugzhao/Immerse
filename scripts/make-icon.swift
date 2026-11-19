@@ -1,7 +1,7 @@
-// 绘制 Immerse 的 App 图标并输出到 AppIcon.appiconset
-// 用法：swift scripts/make-icon.swift
+// Draws the Immerse app icon and writes it to AppIcon.appiconset
+// Usage: swift scripts/make-icon.swift
 //
-// 按 macOS 图标网格：1024 画布、824 主体、圆角约 185，底部留投影空间
+// Follows the macOS icon grid: 1024 canvas, 824 body, corner radius ~185, room left at the bottom for the shadow
 import AppKit
 import CoreGraphics
 
@@ -22,7 +22,7 @@ func render() -> CGImage {
                         bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)!
     let shape = CGPath(roundedRect: body, cornerWidth: corner, cornerHeight: corner, transform: nil)
 
-    // 投影：CG 坐标 y 轴向上，负偏移即向下
+    // Shadow: CG's y axis points up, so a negative offset moves it down
     ctx.saveGState()
     ctx.setShadow(offset: CGSize(width: 0, height: -12), blur: 28, color: rgb(0x000000, 0.32))
     ctx.addPath(shape)
@@ -30,7 +30,7 @@ func render() -> CGImage {
     ctx.fillPath()
     ctx.restoreGState()
 
-    // 底色：靛蓝到深夜蓝的竖向渐变
+    // Base color: vertical gradient from indigo to midnight blue
     ctx.saveGState()
     ctx.addPath(shape)
     ctx.clip()
@@ -39,7 +39,7 @@ func render() -> CGImage {
                         locations: [0, 0.5, 1])!
     ctx.drawLinearGradient(bg, start: CGPoint(x: 512, y: body.maxY), end: CGPoint(x: 512, y: body.minY), options: [])
 
-    // 上方一点柔光，让底色更有层次
+    // A bit of soft light on top to give the base some depth
     let glow = CGGradient(colorsSpace: space,
                           colors: [rgb(0xFFFFFF, 0.22), rgb(0xFFFFFF, 0)] as CFArray,
                           locations: [0, 1])!
@@ -48,7 +48,7 @@ func render() -> CGImage {
 
     let center = CGPoint(x: 512, y: 512)
 
-    // 涟漪：几圈越来越淡的细环，表达「沉浸」
+    // Ripples: a few thin rings fading outward, expressing "immersion"
     for (i, r) in [300.0, 350.0, 400.0].enumerated() {
         ctx.setStrokeColor(rgb(0xFFFFFF, 0.10 - CGFloat(i) * 0.03))
         ctx.setLineWidth(6)
@@ -56,7 +56,7 @@ func render() -> CGImage {
         ctx.strokePath()
     }
 
-    // 进度环轨道
+    // Progress ring track
     let ringR: CGFloat = 220
     let ringW: CGFloat = 58
     ctx.setStrokeColor(rgb(0xFFFFFF, 0.16))
@@ -64,7 +64,7 @@ func render() -> CGImage {
     ctx.addArc(center: center, radius: ringR, startAngle: 0, endAngle: .pi * 2, clockwise: false)
     ctx.strokePath()
 
-    // 进度弧：从 12 点顺时针走 3/4，带一点白色辉光
+    // Progress arc: sweeps 3/4 clockwise from 12 o'clock, with a slight white glow
     let start = CGFloat.pi / 2
     let end = start - CGFloat.pi * 1.5
     ctx.saveGState()
@@ -76,12 +76,12 @@ func render() -> CGImage {
     ctx.strokePath()
     ctx.restoreGState()
 
-    // 中心专注点
+    // Center focus dot
     let dot: CGFloat = 46
     ctx.setFillColor(rgb(0xFFFFFF, 0.95))
     ctx.fillEllipse(in: CGRect(x: center.x - dot, y: center.y - dot, width: dot * 2, height: dot * 2))
 
-    // 顶部内高光描边，模拟 macOS 图标的玻璃边缘
+    // Top inner highlight stroke, mimicking the glass edge of macOS icons
     ctx.addPath(CGPath(roundedRect: body.insetBy(dx: 1.5, dy: 1.5), cornerWidth: corner - 1.5,
                        cornerHeight: corner - 1.5, transform: nil))
     ctx.setStrokeColor(rgb(0xFFFFFF, 0.18))

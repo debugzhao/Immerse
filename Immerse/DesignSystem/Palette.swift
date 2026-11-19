@@ -2,7 +2,7 @@ import AppKit
 import SwiftUI
 
 extension Priority {
-    /// 优先级主色，自动适配浅色 / 深色模式
+    /// Primary priority color, adapts to light / dark mode
     var color: Color {
         switch self {
         case .urgent: .dynamic(light: 0xE5484D, dark: 0xFF6369)
@@ -13,7 +13,7 @@ extension Priority {
 }
 
 extension TaskStatus {
-    /// 状态标签的颜色：未开始灰、进行中蓝、已完成绿
+    /// Status label colors: gray for not started, blue for in progress, green for done
     var color: Color {
         switch self {
         case .todo: .gray
@@ -24,7 +24,7 @@ extension TaskStatus {
 }
 
 enum Palette {
-    /// 日程块填充的不透明度
+    /// Fill opacity of task blocks
     static let eventFillOpacity: Double = 0.18
     static let eventFillOpacityDone: Double = 0.07
     static let eventFillOpacitySelected: Double = 0.32
@@ -35,7 +35,7 @@ enum Palette {
 }
 
 extension Color {
-    /// 按当前外观在两个十六进制颜色之间切换
+    /// Switches between two hex colors based on the current appearance
     static func dynamic(light: UInt32, dark: UInt32) -> Color {
         Color(nsColor: NSColor(name: nil) { appearance in
             let isDark = appearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua

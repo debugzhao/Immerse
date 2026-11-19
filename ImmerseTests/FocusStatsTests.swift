@@ -2,7 +2,7 @@ import Foundation
 import Testing
 @testable import Immerse
 
-/// 「现在」固定为 2026-11-18（周三）20:00
+/// "Now" is fixed at 2026-11-18 (Wednesday) 20:00
 struct FocusStatsTests {
     private let calendar = Calendar.app
     private var now: Date { calendar.date(from: DateComponents(year: 2026, month: 11, day: 18, hour: 20))! }
@@ -18,9 +18,9 @@ struct FocusStatsTests {
     @Test func 今日和本周汇总() {
         let stats = FocusStats(records: [
             record(day: 18, hour: 9, minutes: 60),
-            record(day: 18, hour: 14, minutes: 25, paused: 10),       // 暂停不计入
+            record(day: 18, hour: 14, minutes: 25, paused: 10),       // paused time is not counted
             record(day: 16, hour: 9, minutes: 45, title: "周会", reason: .abandoned),
-            record(day: 14, hour: 9, minutes: 30),                     // 上周六，不算本周
+            record(day: 14, hour: 9, minutes: 30),                     // last Saturday, not this week
         ], now: now, calendar: calendar)
 
         #expect(stats.todayMinutes == 85)
@@ -40,7 +40,7 @@ struct FocusStatsTests {
     }
 
     @Test func 跨午夜的专注按比例拆到两天() {
-        // 23:00 开始，专注 120 分钟到次日 1:00
+        // starts at 23:00, focuses 120 minutes until 1:00 the next day
         let stats = FocusStats(records: [record(day: 17, hour: 23, minutes: 120)], now: now, calendar: calendar)
         let byDay = Dictionary(uniqueKeysWithValues: stats.lastSevenDays.map { (calendar.component(.day, from: $0.date), $0.minutes) })
         #expect(byDay[17] == 60)
@@ -52,7 +52,7 @@ struct FocusStatsTests {
             record(day: 18, hour: 9, minutes: 10),
             record(day: 17, hour: 9, minutes: 10),
             record(day: 16, hour: 9, minutes: 10),
-            record(day: 14, hour: 9, minutes: 10),   // 15 号断了
+            record(day: 14, hour: 9, minutes: 10),   // streak broken on the 15th
         ], now: now, calendar: calendar)
         #expect(stats.streakDays == 3)
     }

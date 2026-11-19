@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// 月视图：6 行 × 7 列，每格最多显示 3 条日程，超出显示「+N」，点击日期进入日视图
+/// Month view: 6 rows × 7 columns, up to 3 events per cell, overflow shown as "+N"; click a date to open day view
 struct MonthView: View {
     @Environment(CalendarStore.self) private var store
     @Environment(TaskStore.self) private var taskStore
@@ -61,7 +61,7 @@ struct MonthView: View {
         .frame(height: 32)
     }
 
-    /// 固定 42 天（6 周），从包含 1 号的那周的周一开始
+    /// Fixed 42 days (6 weeks), starting from the Monday of the week containing the 1st
     private var gridDays: [Date] {
         let calendar = store.calendar
         let monthStart = store.visibleInterval.start
@@ -76,7 +76,7 @@ struct MonthView: View {
         return tasks
             .filter { $0.displayInterval(in: calendar).overlapsHalfOpen(dayInterval) }
             .sorted { a, b in
-                // 全天在前，再按优先级、开始时间
+                // All-day first, then by priority and start time
                 if a.isAllDay != b.isAllDay { return a.isAllDay }
                 if a.priority != b.priority { return a.priority < b.priority }
                 return a.start < b.start
@@ -121,7 +121,7 @@ private struct MonthDayCell: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .background(calendar.isWeekend(day) ? Palette.weekendTint : .clear)
         .overlay(alignment: .topLeading) {
-            // 网格线：每格画上边和左边
+            // Grid lines: draw the top and left edge of each cell
             ZStack(alignment: .topLeading) {
                 Rectangle().fill(Palette.gridLine).frame(height: 0.5)
                 Rectangle().fill(Palette.gridLine).frame(width: 0.5)

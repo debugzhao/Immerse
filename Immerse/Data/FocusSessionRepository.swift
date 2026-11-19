@@ -1,14 +1,14 @@
 import Foundation
 import SwiftData
 
-/// 专注记录的数据访问
+/// Data access for focus sessions
 @MainActor
 protocol FocusSessionRepository: AnyObject {
     func activeSession() throws -> FocusSessionState?
-    /// 保存进行中的专注（存在则更新）
+    /// Saves the in-progress session (updates it if it exists)
     func save(_ state: FocusSessionState) throws
     func finish(_ state: FocusSessionState, endedAt: Date, reason: FocusEndReason) throws
-    /// 与 interval 有交集的已结束记录
+    /// Finished sessions that overlap the interval
     func records(in interval: DateInterval) throws -> [FocusRecord]
 }
 
@@ -57,7 +57,7 @@ final class SwiftDataFocusSessionRepository: FocusSessionRepository {
         descriptor.fetchLimit = 1
         guard let session = try context.fetch(descriptor).first else { return nil }
         guard let taskID = session.task?.id else {
-            // 专注中的任务被删了：这条记录没法恢复，按放弃结束掉，避免永远挂着
+            // The task being focused was deleted: this session can't be recovered, so end it as abandoned rather than leave it dangling forever
             session.endedAt = session.pausedAt ?? .now
             session.endReasonRaw = FocusEndReason.abandoned.rawValue
             try context.save()
@@ -90,7 +90,7 @@ final class SwiftDataFocusSessionRepository: FocusSessionRepository {
     func finish(_ state: FocusSessionState, endedAt: Date, reason: FocusEndReason) throws {
         try save(state)
         guard let session = try fetch(id: state.id) else { return }
-        // 暂停中结束：把这段暂停也计入暂停时长
+        // Ended while paused: count this pause toward the total paused duration
         if let pausedAt = state.pausedAt {
             session.pausedSeconds += Int(endedAt.timeIntervalSince(pausedAt))
             session.pausedAt = nil

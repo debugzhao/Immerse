@@ -1,20 +1,20 @@
 import SwiftUI
 
-/// 玻璃表面的用途，不同用途对应不同的模糊强度
+/// Purpose of a glass surface; each purpose maps to a different blur strength
 enum GlassStyle: Sendable {
-    /// 吸顶的日期栏、全天行
+    /// Sticky date bar, all-day row
     case bar
-    /// 详情面板、设置面板
+    /// Detail panel, settings panel
     case panel
-    /// 命令面板、快速创建等浮层
+    /// Overlays such as the command palette and quick create
     case overlay
-    /// 专注时的全屏沉浸视图
+    /// Full-screen immersive view during focus
     case immersive
 }
 
 extension View {
-    /// 所有玻璃效果统一走这里。
-    /// 目前用毛玻璃（Material）实现；以后升级到 macOS 26，只需在 `GlassSurfaceModifier` 里接入 Liquid Glass。
+    /// All glass effects go through here.
+    /// Currently implemented with frosted glass (Material); when upgrading to macOS 26, just adopt Liquid Glass in `GlassSurfaceModifier`.
     func glassSurface(_ style: GlassStyle, cornerRadius: CGFloat = 12) -> some View {
         modifier(GlassSurfaceModifier(style: style, cornerRadius: cornerRadius))
     }
@@ -25,7 +25,7 @@ struct GlassSurfaceModifier: ViewModifier {
     let cornerRadius: CGFloat
 
     func body(content: Content) -> some View {
-        // 升级到 macOS 26 + Xcode 26 后，在这里加：
+        // After upgrading to macOS 26 + Xcode 26, add here:
         // #if compiler(>=6.2)
         // if #available(macOS 26, *) { content.glassEffect(.regular, in: .rect(cornerRadius: cornerRadius)) }
         // #endif
@@ -33,7 +33,7 @@ struct GlassSurfaceModifier: ViewModifier {
         return content
             .background(material, in: shape)
             .overlay {
-                // 玻璃边缘的一圈细高光，让毛玻璃更有「玻璃」的质感
+                // A thin highlight along the glass edge, making the frosted glass feel more like glass
                 shape.strokeBorder(.white.opacity(0.14), lineWidth: 0.5)
             }
             .shadow(color: .black.opacity(hasShadow ? 0.12 : 0), radius: 16, y: 6)

@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// 主窗口：左侧栏 + 日历，底部浮着轻提示，时间到时浮出提醒面板
+/// Main window: sidebar + calendar, with a toast floating at the bottom and a reminder panel when time is up
 struct RootView: View {
     @Environment(FocusEngine.self) private var focusEngine
     @Environment(SettingsStore.self) private var settings
@@ -31,7 +31,7 @@ struct RootView: View {
         .overlay {
             FocusTimeUpOverlay()
         }
-        // 首次启动：勿扰设置引导
+        // First launch: Do Not Disturb setup guide
         .sheet(isPresented: Binding(
             get: { (!settings.onboardingCompleted && !PersistenceController.isEphemeral) || DebugFlags.forceOnboarding },
             set: { if !$0 { settings.onboardingCompleted = true } }

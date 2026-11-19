@@ -1,7 +1,7 @@
 import SwiftUI
 
-/// ⌘K 命令面板：输入自然语言快速新建日程，或者执行命令、跳转到日程。
-/// ↩ 执行选中项（默认第一项）；⌘↩ 新建并立即开始专注；↑↓ 切换；Esc 关闭。
+/// ⌘K command palette: type natural language to quickly create an event, run a command, or jump to an event.
+/// ↩ runs the selected item (first by default); ⌘↩ creates and immediately starts focus; ↑↓ to move; Esc to close.
 struct CommandPaletteView: View {
     @Environment(CalendarStore.self) private var store
     @Environment(TaskStore.self) private var taskStore
@@ -122,7 +122,7 @@ struct CommandPaletteView: View {
         .background(Color.primary.opacity(0.03))
     }
 
-    // MARK: - 条目
+    // MARK: - Items
 
     private func makeItems() -> [Item] {
         let trimmed = text.trimmingCharacters(in: .whitespaces)
@@ -206,7 +206,7 @@ struct CommandPaletteView: View {
         return parts.joined(separator: " · ")
     }
 
-    // MARK: - 动作
+    // MARK: - Actions
 
     private func move(_ delta: Int, count: Int) -> KeyPress.Result {
         guard count > 0 else { return .handled }
@@ -240,7 +240,7 @@ struct CommandPaletteView: View {
     }
 }
 
-/// 命令面板的浮层容器：半透明遮罩 + 顶部居中
+/// Overlay container for the command palette: translucent scrim + top-centered
 struct CommandPaletteOverlay: View {
     @Environment(CalendarStore.self) private var store
 

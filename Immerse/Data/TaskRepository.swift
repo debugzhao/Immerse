@@ -1,22 +1,22 @@
 import Foundation
 
-/// 任务数据访问的抽象。上层只认识 `TaskSnapshot`，不关心底层是 SwiftData 还是别的存储。
+/// Abstraction over task data access. Upper layers only know `TaskSnapshot`, regardless of whether storage is SwiftData or something else.
 @MainActor
 protocol TaskRepository: AnyObject {
-    /// 返回在日历上与 interval 有交集的任务（按半开区间判断），按开始时间升序。
+    /// Returns tasks that overlap the interval on the calendar (half-open interval semantics), sorted by start time ascending.
     func tasks(in interval: DateInterval) throws -> [TaskSnapshot]
     func task(id: UUID) throws -> TaskSnapshot?
-    /// 标题或备注包含关键字的任务，按开始时间倒序，最多 limit 条。
+    /// Tasks whose title or notes contain the keyword, sorted by start time descending, at most `limit`.
     func search(_ keyword: String, limit: Int) throws -> [TaskSnapshot]
     func allTasks() throws -> [TaskSnapshot]
     func isEmpty() throws -> Bool
     func insert(_ snapshots: [TaskSnapshot]) throws
-    /// 存在则更新，不存在则插入
+    /// Updates if it exists, inserts otherwise
     func upsert(_ snapshot: TaskSnapshot) throws
     func delete(id: UUID) throws
 }
 
-/// 内存实现：给单元测试和 SwiftUI 预览用。
+/// In-memory implementation for unit tests and SwiftUI previews.
 @MainActor
 final class InMemoryTaskRepository: TaskRepository {
     private(set) var items: [TaskSnapshot]

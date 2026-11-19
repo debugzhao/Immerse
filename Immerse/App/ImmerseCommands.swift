@@ -1,7 +1,7 @@
 import AppKit
 import SwiftUI
 
-/// 菜单栏命令：新建、删除、撤销 / 重做、搜索、专注
+/// Menu bar commands: new, delete, undo / redo, search, focus
 struct ImmerseCommands: Commands {
     let environment: AppEnvironment
 
@@ -30,7 +30,7 @@ struct ImmerseCommands: Commands {
         CommandGroup(after: .pasteboard) {
             Divider()
             Button("删除日程") {
-                // 正在输入文字时 ⌘⌫ 是删除到行首
+                // While typing, ⌘⌫ means delete to start of line
                 if let textView = NSApp.keyWindow?.firstResponder as? NSTextView {
                     textView.deleteToBeginningOfLine(nil)
                     return
@@ -97,7 +97,7 @@ struct ImmerseCommands: Commands {
         }
     }
 
-    /// 正在编辑文字时，撤销交给文本框自己；否则撤销日程操作
+    /// While editing text, undo goes to the text field itself; otherwise undo the task operation
     private func performUndo() {
         if let textView = NSApp.keyWindow?.firstResponder as? NSTextView,
            let manager = textView.undoManager, manager.canUndo {

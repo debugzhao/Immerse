@@ -1,19 +1,19 @@
 import Foundation
 
-/// 时间选择列表的候选项（纯计算，便于测试）
+/// Candidates for time pickers (pure computation, easy to test)
 enum TimeSlots {
     static let step: TimeInterval = 15 * 60
 
-    /// 结束时间弹窗顶部的快捷时长（分钟）
+    /// Quick durations at the top of the end-time popup (minutes)
     static let durationPresets = [30, 60, 90, 120]
 
-    /// 开始时间候选：当天 00:00 到 23:45，每 15 分钟一个
+    /// Start time candidates: 00:00 to 23:45 of the day, one every 15 minutes
     static func starts(on day: Date, calendar: Calendar) -> [Date] {
         let dayStart = calendar.startOfDay(for: day)
         return (0..<96).map { dayStart.addingTimeInterval(TimeInterval($0) * step) }
     }
 
-    /// 结束时间候选：开始后至少 15 分钟（对齐到 15 分钟刻度），最多到开始后 24 小时
+    /// End time candidates: at least 15 minutes after start (aligned to the 15-minute grid), up to 24 hours after start
     static func ends(after start: Date, calendar: Calendar) -> [Date] {
         let dayStart = calendar.startOfDay(for: start)
         let earliest = start.addingTimeInterval(EventEditing.minimumDuration)
@@ -30,7 +30,7 @@ enum TimeSlots {
         return result
     }
 
-    /// 「45分钟」「1小时」「1小时30分」
+    /// "45分钟", "1小时", "1小时30分" (45 min, 1 hour, 1 hour 30 min)
     static func durationText(minutes: Int) -> String {
         let hours = minutes / 60
         let rest = minutes % 60

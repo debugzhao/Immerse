@@ -65,7 +65,7 @@ struct ImmerseApp: App {
 }
 
 extension View {
-    /// 把所有 Store 注入视图环境
+    /// Injects all stores into the view environment
     func injecting(_ environment: AppEnvironment) -> some View {
         self
             .environment(environment.taskStore)

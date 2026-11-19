@@ -2,7 +2,7 @@ import Foundation
 import Testing
 @testable import Immerse
 
-/// 「现在」固定为 2026-11-18（周三）10:00
+/// "Now" is fixed at 2026-11-18 (Wednesday) 10:00
 struct NaturalLanguageParserTests {
     private let calendar = Calendar.app
     private var now: Date {
@@ -13,14 +13,14 @@ struct NaturalLanguageParserTests {
         NaturalLanguageParser.parse(text, now: now, calendar: calendar)
     }
 
-    /// 「11-19 15:00」格式，方便断言
+    /// "11-19 15:00" format, convenient for assertions
     private func fmt(_ date: Date?) -> String {
         guard let date else { return "nil" }
         let c = calendar.dateComponents([.month, .day, .hour, .minute], from: date)
         return String(format: "%d-%d %02d:%02d", c.month!, c.day!, c.hour!, c.minute!)
     }
 
-    // MARK: - 需求里的例子
+    // MARK: - Examples from the requirements
 
     @Test func 需求示例() {
         let r = parse("明天下午3点 阅读《第一性原理》 1小时 重要")
@@ -33,7 +33,7 @@ struct NaturalLanguageParserTests {
         #expect(!task.isAllDay)
     }
 
-    // MARK: - 日期
+    // MARK: - Dates
 
     @Test(arguments: [
         ("今天 写周报", "11-18 00:00"),
@@ -48,12 +48,12 @@ struct NaturalLanguageParserTests {
     }
 
     @Test(arguments: [
-        ("周五 复盘", "11-20 00:00"),       // 本周还没到的周五
-        ("周一 复盘", "11-23 00:00"),       // 本周一已过，算下周一
-        ("周三 复盘", "11-18 00:00"),       // 就是今天
+        ("周五 复盘", "11-20 00:00"),       // Friday not yet reached this week
+        ("周一 复盘", "11-23 00:00"),       // this Monday has passed, so it means next Monday
+        ("周三 复盘", "11-18 00:00"),       // today
         ("星期日 复盘", "11-22 00:00"),
         ("周天 复盘", "11-22 00:00"),
-        ("本周一 复盘", "11-16 00:00"),     // 明确说本周，就算已过也是本周
+        ("本周一 复盘", "11-16 00:00"),     // explicitly "this week", so it stays this week even if already passed
         ("下周三 复盘", "11-25 00:00"),
         ("下下周二 复盘", "12-1 00:00"),
         ("礼拜六 复盘", "11-21 00:00"),
@@ -74,7 +74,7 @@ struct NaturalLanguageParserTests {
         #expect(year == 2027)
     }
 
-    // MARK: - 时间
+    // MARK: - Times
 
     @Test(arguments: [
         ("明天上午9点 晨会", "11-19 09:00"),
@@ -106,7 +106,7 @@ struct NaturalLanguageParserTests {
     @Test func 不写时段的一到六点理解为下午() {
         #expect(fmt(parse("明天3点 喝茶").start) == "11-19 15:00")
         #expect(fmt(parse("明天9点 晨会").start) == "11-19 09:00")
-        #expect(fmt(parse("明天03:00 发布").start) == "11-19 03:00")   // HH:mm 照字面
+        #expect(fmt(parse("明天03:00 发布").start) == "11-19 03:00")   // HH:mm is taken literally
     }
 
     @Test func 今晚() {
@@ -115,7 +115,7 @@ struct NaturalLanguageParserTests {
         #expect(r.title == "看电影")
     }
 
-    // MARK: - 时间段
+    // MARK: - Time ranges
 
     @Test func 时间段沿用开始的时段() {
         let r = parse("明天下午3点到5点 黑客松")
@@ -137,7 +137,7 @@ struct NaturalLanguageParserTests {
         #expect(fmt(r.end) == "11-20 01:00")
     }
 
-    // MARK: - 时长
+    // MARK: - Durations
 
     @Test(arguments: [
         ("阅读 1小时", 60),
@@ -168,7 +168,7 @@ struct NaturalLanguageParserTests {
         #expect(r.durationMinutes == nil)
     }
 
-    // MARK: - 优先级与地点
+    // MARK: - Priority and location
 
     @Test(arguments: [
         ("提交报告 紧急", Priority.urgent),
@@ -195,7 +195,7 @@ struct NaturalLanguageParserTests {
         #expect(r.title == "周会")
     }
 
-    // MARK: - 兜底
+    // MARK: - Fallback
 
     @Test func 什么都没识别出来时整句作为标题全天今天() {
         let task = parse("学会使用区块浏览器").makeSnapshot(now: now, calendar: calendar)

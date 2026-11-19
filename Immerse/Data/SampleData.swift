@@ -1,12 +1,12 @@
 import Foundation
 import OSLog
 
-/// 开发阶段的假数据：取自 Notion「主线任务日程」里的任务，铺满本周，覆盖重叠、全天、跨天、各种状态。
+/// Dev-time mock data: tasks taken from the Notion "Main Task Schedule", spread across this week, covering overlap, all-day, multi-day and every status.
 enum SampleData {
     private static let seededKey = "didSeedSampleData"
     private static let logger = Logger(subsystem: "com.debugzhao.immerse", category: "SampleData")
 
-    /// 数据库为空且从没灌过假数据时才写入；用户删光数据后不会再冒出来。
+    /// Only written when the database is empty and has never been seeded; it won't reappear after the user deletes everything.
     @MainActor
     static func seedIfNeeded(_ repository: TaskRepository, now: Date = .now, calendar: Calendar = .app) {
         let defaults = UserDefaults.standard
@@ -21,7 +21,7 @@ enum SampleData {
         }
     }
 
-    /// 截图演示用：给本周已完成 / 进行中的定时任务补几条专注记录
+    /// For screenshot demos: adds a few focus sessions for this week's completed / in-progress timed tasks
     @MainActor
     static func seedFocusHistory(_ focus: FocusSessionRepository, tasks: TaskRepository,
                                  now: Date = .now, calendar: Calendar = .app) {
@@ -29,7 +29,7 @@ enum SampleData {
               let all = try? tasks.tasks(in: week) else { return }
         for task in all where !task.isAllDay && task.start < now && task.status != .inProgress {
             let interval = task.displayInterval(in: calendar)
-            // 实际专注比计划晚开始 5 分钟、少 10 分钟，演示「实际 vs 计划」的差别
+            // Actual focus starts 5 minutes later than planned and runs 10 minutes shorter, to demo the "actual vs planned" difference
             let start = interval.start.addingTimeInterval(5 * 60)
             let seconds = max(Int(interval.duration) - 15 * 60, 15 * 60)
             let state = FocusSessionState(taskID: task.id, taskTitle: task.title, startedAt: start, plannedSeconds: seconds)
@@ -61,25 +61,25 @@ enum SampleData {
         }
 
         return [
-            // 周一
+            // Monday
             allDay("了解 Creative 链，完成第一天的任务", 0, nil, .urgent, .done),
             timed("阅读《第一性原理》", 0, 9, 30, 11, 0, .important, .done),
             timed("了解 Uniswap 协议", 0, 14, 0, 15, 30, .urgent),
             timed("学会使用区块浏览器", 0, 14, 30, 16, 0, .normal),
-            // 周二
+            // Tuesday
             allDay("了解链上数据", 1, nil, .important),
             timed("阅读《谈判技巧》", 1, 10, 0, 11, 0, .normal),
             timed("整理 DeFi 学习笔记", 1, 16, 0, 16, 45, .normal),
-            // 周三：三个日程互相重叠，用来验证并排布局
+            // Wednesday: three overlapping tasks to verify the side-by-side layout
             timed("了解交易所概念", 2, 9, 0, 12, 0, .urgent, .inProgress),
             timed("周会", 2, 10, 0, 11, 0, .normal, place: "3F 会议室"),
             timed("Code Review", 2, 10, 30, 11, 30, .important),
-            // 周四到周五：跨天全天任务
+            // Thursday to Friday: multi-day all-day task
             allDay("Creative 链黑客松", 3, 4, .important),
             timed("了解 Creative 链生态", 3, 15, 0, 16, 0, .normal),
-            // 周五
+            // Friday
             timed("复盘本周", 4, 20, 0, 21, 30, .important),
-            // 周末
+            // Weekend
             timed("健身", 5, 10, 0, 11, 0, .normal, place: "健身房"),
             timed("规划下周主线任务", 6, 21, 0, 22, 0, .urgent),
         ]

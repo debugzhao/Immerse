@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// 底部轻提示：显示 4 秒后自动消失，可带「撤销」按钮
+/// Bottom toast: auto-dismisses after 4 seconds, optionally with an "撤销" (undo) button
 struct ToastOverlay: View {
     @Environment(TaskStore.self) private var taskStore
 

@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// 侧栏「今天」任务列表：按优先级、开始时间排序，点圆圈勾选完成
+/// Sidebar "Today" task list: sorted by priority, then start time; click the circle to complete
 struct TodayTaskList: View {
     @Environment(TaskStore.self) private var taskStore
     @Environment(CalendarStore.self) private var store
@@ -37,7 +37,7 @@ struct TodayTaskList: View {
         let calendar = store.calendar
         guard let today = calendar.dateInterval(of: .day, for: .now) else { return [] }
         return taskStore.tasks(in: today).sorted { a, b in
-            // 已完成的沉到底部
+            // Completed tasks sink to the bottom
             if (a.status == .done) != (b.status == .done) { return b.status == .done }
             if a.priority != b.priority { return a.priority < b.priority }
             return a.start < b.start

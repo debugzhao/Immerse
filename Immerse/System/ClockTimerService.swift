@@ -2,10 +2,10 @@ import Foundation
 import Observation
 import OSLog
 
-/// 开始专注时在系统「时钟」里开一个倒计时。
+/// Starts a countdown in the system Clock app when focus begins.
 ///
-/// 「时钟」没有开放给第三方 App 的 API，所以借助快捷指令：用户建一个快捷指令
-/// （接收数字输入 → 时钟「开始计时器」），App 把专注分钟数作为输入传给它。
+/// Clock has no API for third-party apps, so this goes through Shortcuts: the user creates a shortcut
+/// (takes numeric input → Clock "Start Timer"), and the app passes the focus minutes to it as input.
 @MainActor
 @Observable
 final class ClockTimerService {
@@ -18,7 +18,7 @@ final class ClockTimerService {
     }
 
     private(set) var setupStatus: SetupStatus = .unknown
-    /// 最近一次开倒计时失败的原因
+    /// Reason the most recent countdown start failed
     private(set) var lastError: String?
 
     @ObservationIgnored private let settings: SettingsStore
@@ -28,7 +28,7 @@ final class ClockTimerService {
         self.settings = settings
     }
 
-    /// 专注开始时调用；设置里关掉了就什么都不做
+    /// Called when focus starts; does nothing if turned off in settings
     func startIfEnabled(minutes: Int) {
         guard settings.clockTimerEnabled else { return }
         Task { await start(minutes: minutes) }

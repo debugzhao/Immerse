@@ -1,19 +1,19 @@
 import AppKit
 
-/// 轻量 Markdown 高亮：只识别备注里常用的语法，原样保留标记符号（变淡），不做渲染转换。
-/// 分两步：`spans(in:)` 纯计算出每段文字的样式（便于测试），`apply(to:)` 把样式写进 NSTextStorage。
+/// Lightweight Markdown highlighting: recognizes only the syntax commonly used in notes, keeps markers verbatim (dimmed), and does no render conversion.
+/// Two steps: `spans(in:)` is a pure computation of per-range styles (easy to test), `apply(to:)` writes the styles into the NSTextStorage.
 enum MarkdownStyler {
     struct Span: Equatable {
         enum Kind: Equatable {
             case heading(level: Int)
-            /// `#`、`**`、`- `、`[ ]` 这类标记符号
+            /// Markers such as `#`, `**`, `- `, `[ ]`
             case marker
             case bold
             case italic
             case code
             case codeBlock
             case quote
-            /// 已勾选的待办
+            /// A checked to-do
             case done
         }
 
@@ -23,10 +23,10 @@ enum MarkdownStyler {
 
     static let fontSize: CGFloat = 14
 
-    // MARK: - 解析
+    // MARK: - Parsing
 
     private static func regex(_ pattern: String) -> NSRegularExpression {
-        // 模式都是写死的常量，出错就是代码 bug
+        // Patterns are hard-coded constants; a failure here is a code bug
         try! NSRegularExpression(pattern: pattern, options: [.anchorsMatchLines])
     }
 
@@ -47,7 +47,7 @@ enum MarkdownStyler {
         string.enumerateSubstrings(in: NSRange(location: 0, length: string.length), options: [.byLines, .substringNotRequired]) { _, line, _, _ in
             let content = string.substring(with: line)
 
-            // ``` 代码块
+            // ``` code block
             if content.trimmingCharacters(in: .whitespaces).hasPrefix("```") {
                 spans.append(Span(range: line, kind: .codeBlock))
                 spans.append(Span(range: line, kind: .marker))
@@ -98,7 +98,7 @@ enum MarkdownStyler {
             codeRanges.append(match.range)
             result += wrapped(match, kind: .code, markerLength: 1)
         }
-        // 代码里的 * 不算粗体 / 斜体
+        // * inside code is not bold / italic
         func outsideCode(_ range: NSRange) -> Bool {
             !codeRanges.contains { NSIntersectionRange($0, range).length > 0 }
         }
@@ -111,7 +111,7 @@ enum MarkdownStyler {
         return result
     }
 
-    /// 内容用 kind 样式，两端的标记符号用 marker 样式
+    /// Content gets the kind style, the markers at both ends get the marker style
     private static func wrapped(_ match: NSTextCheckingResult, kind: Span.Kind, markerLength: Int) -> [Span] {
         let range = match.range
         return [
@@ -121,7 +121,7 @@ enum MarkdownStyler {
         ]
     }
 
-    // MARK: - 样式
+    // MARK: - Styling
 
     static var baseAttributes: [NSAttributedString.Key: Any] {
         let paragraph = NSMutableParagraphStyle()
@@ -133,7 +133,7 @@ enum MarkdownStyler {
         ]
     }
 
-    /// 重新给整段文字上样式。只改属性不改字符，不会进撤销栈。
+    /// Restyles the whole text. Changes attributes only, not characters, so nothing goes on the undo stack.
     @MainActor
     static func apply(to storage: NSTextStorage) {
         let full = NSRange(location: 0, length: storage.length)
@@ -142,7 +142,7 @@ enum MarkdownStyler {
         storage.beginEditing()
         storage.setAttributes(baseAttributes, range: full)
 
-        // 先块级、再行内、最后标记符号，后面的覆盖前面的
+        // Block level first, then inline, then markers; later passes override earlier ones
         let order: (Span.Kind) -> Int = { kind in
             switch kind {
             case .heading, .codeBlock, .quote, .done: 0
@@ -172,7 +172,7 @@ enum MarkdownStyler {
                 storage.addAttribute(.font, value: fonts.convert(font, toHaveTrait: .boldFontMask), range: sub)
             }
         case .italic:
-            // 中文字体没有斜体字形，用倾斜度兜底
+            // CJK fonts have no italic glyphs, so fall back to an oblique skew
             storage.addAttribute(.obliqueness, value: 0.18, range: range)
         case .code:
             storage.addAttributes([
@@ -195,9 +195,9 @@ enum MarkdownStyler {
         }
     }
 
-    // MARK: - 编辑辅助
+    // MARK: - Editing helpers
 
-    /// 回车时续写列表标记。返回 nil 表示不是列表行；返回空串表示空列表项，应结束列表（删掉标记）
+    /// Continues the list marker on Return. Returns nil if not a list line; returns an empty string for an empty list item, which should end the list (remove the marker)
     static func continuation(forLine line: String) -> String? {
         let ns = line as NSString
         let range = NSRange(location: 0, length: ns.length)
@@ -227,7 +227,7 @@ enum MarkdownStyler {
         return next(indent)
     }
 
-    /// 行首待办复选框 `[ ]` / `[x]` 中间那个字符的位置（相对行首），不是待办行返回 nil
+    /// Position of the character inside the `[ ]` / `[x]` checkbox at the line start (relative to line start); nil if not a to-do line
     static func checkboxOffset(inLine line: String) -> Int? {
         let range = NSRange(location: 0, length: (line as NSString).length)
         return taskPattern.firstMatch(in: line, range: range)?.range(at: 1).location

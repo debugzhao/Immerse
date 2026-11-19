@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// 时间网格里的一个日程块：优先级色半透明填充 + 左侧色条 + 标题和时间
+/// One event block in the time grid: translucent priority-colored fill + left color bar + title and time
 struct EventBlockView: View {
     let task: TaskSnapshot
     let isSelected: Bool
@@ -17,7 +17,7 @@ struct EventBlockView: View {
 
         content(shape)
             .overlay(alignment: .topTrailing) {
-                // 悬停时显示「开始专注」快捷按钮：宽的块显示「▶ 专注」，窄的只显示图标
+                // Show a "start focus" quick button on hover: wide blocks show "▶ 专注", narrow ones show only the icon
                 if store.hoveredTaskID == task.id && !isDone && !focusEngine.isFocusing(on: task.id) && height >= 22 {
                     Button {
                         focusEngine.requestStart(task)
@@ -66,7 +66,7 @@ struct EventBlockView: View {
                 .fill(color)
                 .frame(width: 3)
             GeometryReader { geometry in
-                // 窄块（多个日程并排时）放不下时间，把空间都留给标题，按高度能放几行就放几行
+                // Narrow blocks (events side by side) can't fit the time; give all space to the title, as many lines as the height allows
                 let isNarrow = geometry.size.width < 64
                 let showsSubtitle = !isNarrow && height >= 34
                 let titleLines = max(1, Int((height - (showsSubtitle ? 22 : 6)) / 15))
@@ -100,7 +100,7 @@ struct EventBlockView: View {
         .modifier(BreathingGlow(isActive: task.status == .inProgress, color: color))
         .contentShape(shape)
         .onTapGesture { store.select(task.id) }
-        // 双击打开弹窗（单击立即选中，不等双击判定）
+        // Double-click opens the popup (single click selects immediately, without waiting for double-click detection)
         .simultaneousGesture(TapGesture(count: 2).onEnded { store.openEditor(task.id) })
         .taskContextMenu(task)
         .help(tooltip)
@@ -124,7 +124,7 @@ struct EventBlockView: View {
     }
 }
 
-/// 进行中的任务：边框和阴影做呼吸效果。系统开启「减少动态效果」时只保留静态描边。
+/// In-progress task: border and shadow pulse. With system "Reduce Motion" on, only a static outline remains.
 struct BreathingGlow: ViewModifier {
     let isActive: Bool
     let color: Color
@@ -150,10 +150,10 @@ struct BreathingGlow: ViewModifier {
     }
 }
 
-// MARK: - 右键菜单
+// MARK: - Context menu
 
 extension View {
-    /// 日程的右键菜单，日历块、全天条、侧栏列表共用
+    /// Context menu for an event, shared by calendar blocks, all-day bars, and the sidebar list
     func taskContextMenu(_ task: TaskSnapshot) -> some View {
         modifier(TaskContextMenu(task: task))
     }
