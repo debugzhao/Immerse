@@ -1,6 +1,7 @@
 // Draws the Immerse app icon and writes it to AppIcon.appiconset
 // Usage: swift scripts/make-icon.swift                  → app icon
 //        swift scripts/make-icon.swift --brand <dir>    → website / brand assets (PNG, SVG, favicons)
+//        swift scripts/make-icon.swift --ios            → iPhone app icon (1024, opaque, no alpha channel)
 //
 // Follows the macOS icon grid: 1024 canvas, 824 body, corner radius ~185, room left at the bottom for the shadow.
 // All drawing happens in that 1024 "icon space"; brand variants just crop to the body and drop the shadow.
@@ -189,6 +190,19 @@ if let flag = args.firstIndex(of: "--brand") {
     }
     try! logoSVG().write(to: dir.appendingPathComponent("immerse-logo.svg"), atomically: true, encoding: .utf8)
     print("✅ \(dir.standardizedFileURL.path)")
+    exit(0)
+}
+
+if args.contains("--ios") {
+    // App Store Connect rejects iOS icons that carry an alpha channel, so redraw the full-bleed square without one
+    let square = render(size: 1024, layout: .square)
+    let ctx = CGContext(data: nil, width: 1024, height: 1024, bitsPerComponent: 8, bytesPerRow: 0,
+                        space: CGColorSpace(name: CGColorSpace.sRGB)!,
+                        bitmapInfo: CGImageAlphaInfo.noneSkipLast.rawValue)!
+    ctx.draw(square, in: CGRect(x: 0, y: 0, width: 1024, height: 1024))
+    let url = root.appendingPathComponent("ImmerseiOS/Resources/Assets.xcassets/AppIcon.appiconset/icon-1024.png")
+    writeExact(ctx.makeImage()!, to: url)
+    print("✅ \(url.path)")
     exit(0)
 }
 

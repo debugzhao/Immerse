@@ -1,11 +1,10 @@
 import Foundation
-import ImmerseCore
 import Observation
 
 /// Schedules the daily review notification: uses a system scheduled notification so it fires on time even if the app isn't running.
 /// Rescheduled whenever tasks change, settings change, and every half hour, to keep the notification content current.
 @MainActor
-final class DailyReviewScheduler {
+public final class DailyReviewScheduler {
     private let taskStore: TaskStore
     private let settings: SettingsStore
     private let notifications: NotificationService
@@ -15,7 +14,7 @@ final class DailyReviewScheduler {
     /// Lines for goals that are behind schedule at the given moment
     private let behindGoals: (Date) -> [String]
 
-    init(taskStore: TaskStore, settings: SettingsStore, notifications: NotificationService, calendar: Calendar,
+    public init(taskStore: TaskStore, settings: SettingsStore, notifications: NotificationService, calendar: Calendar,
          behindGoals: @escaping (Date) -> [String] = { _ in [] }) {
         self.behindGoals = behindGoals
         self.taskStore = taskStore
@@ -24,7 +23,7 @@ final class DailyReviewScheduler {
         self.calendar = calendar
     }
 
-    func start() {
+    public func start() {
         reschedule()
         observeChanges()
         // After a reminder fires, schedule the next day's; this also catches up across day changes and wake from sleep
@@ -36,7 +35,7 @@ final class DailyReviewScheduler {
         }
     }
 
-    func reschedule(now: Date = .now) {
+    public func reschedule(now: Date = .now) {
         guard settings.dailyReviewEnabled else {
             notifications.cancelDailyReview()
             return

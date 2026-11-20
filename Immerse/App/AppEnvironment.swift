@@ -27,6 +27,7 @@ final class AppEnvironment {
         calendarStore = CalendarStore(calendar: calendar)
         settings = SettingsStore(defaults: isEphemeral ? UserDefaults(suiteName: "immerse.ephemeral") ?? .standard : .standard)
         notifications = NotificationService(isSilenced: isEphemeral)
+        notifications.installMacHooks()
         shortcutsDND = ShortcutsDoNotDisturbService(settings: settings)
         let dnd: DoNotDisturbServicing = isEphemeral ? NoopDoNotDisturbService() : shortcutsDND
         let settings = self.settings

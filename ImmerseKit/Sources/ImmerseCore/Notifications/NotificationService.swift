@@ -1,14 +1,12 @@
-import AppKit
 import Foundation
-import ImmerseCore
 import OSLog
 // UNUserNotificationCenter is not yet marked Sendable in the macOS 14 SDK, but it is thread-safe
 @preconcurrency import UserNotifications
 
 @MainActor
 @Observable
-final class NotificationService: NSObject, FocusNotifying, AutoFocusNotifying {
-    enum Permission: Equatable {
+public final class NotificationService: NSObject, FocusNotifying, AutoFocusNotifying {
+    public enum Permission: Equatable {
         case unknown
         case notDetermined
         case authorized
@@ -16,9 +14,9 @@ final class NotificationService: NSObject, FocusNotifying, AutoFocusNotifying {
     }
 
     /// Current notification permission, refreshed by `refreshPermission()`
-    private(set) var permission: Permission = .unknown
+    public private(set) var permission: Permission = .unknown
 
-    static let categoryID = "FOCUS_END"
+    public static let categoryID = "FOCUS_END"
     private static let requestID = "focus-end"
 
     private let center = UNUserNotificationCenter.current()
@@ -26,21 +24,25 @@ final class NotificationService: NSObject, FocusNotifying, AutoFocusNotifying {
     /// Silent mode (tests, screenshots): sends nothing
     private let isSilenced: Bool
     /// The user tapped a button on the notification
-    @ObservationIgnored var onAction: ((FocusNotificationAction) -> Void)?
+    @ObservationIgnored public var onAction: ((FocusNotificationAction) -> Void)?
     /// The user tapped a button on an auto-focus notification (the UUID is the event's)
-    @ObservationIgnored var onAutoFocusAction: ((AutoFocusAction, UUID) -> Void)?
+    @ObservationIgnored public var onAutoFocusAction: ((AutoFocusAction, UUID) -> Void)?
     /// The daily review notification was tapped
-    @ObservationIgnored var onDailyReviewOpened: (() -> Void)?
+    @ObservationIgnored public var onDailyReviewOpened: (() -> Void)?
+    /// A notification itself (not one of its buttons) was tapped: the platform brings the app forward (macOS)
+    @ObservationIgnored public var onNotificationOpened: (() -> Void)?
+    /// Extra sound when time is up while the app is running (macOS plays "Glass"; iOS relies on the notification sound)
+    @ObservationIgnored public var playTimeUpSound: (() -> Void)?
 
-    static let upcomingCategoryID = "AUTO_FOCUS_UPCOMING"
-    static let autoStartedCategoryID = "AUTO_FOCUS_STARTED"
-    static let conflictCategoryID = "AUTO_FOCUS_CONFLICT"
+    public static let upcomingCategoryID = "AUTO_FOCUS_UPCOMING"
+    public static let autoStartedCategoryID = "AUTO_FOCUS_STARTED"
+    public static let conflictCategoryID = "AUTO_FOCUS_CONFLICT"
     private static let upcomingID = "auto-focus-upcoming"
     private static let autoStartedID = "auto-focus-started"
     private static let conflictID = "auto-focus-conflict"
-    nonisolated static let taskIDKey = "taskID"
+    public nonisolated static let taskIDKey = "taskID"
 
-    init(isSilenced: Bool = false) {
+    public init(isSilenced: Bool = false) {
         self.isSilenced = isSilenced
         super.init()
         guard !isSilenced else { return }
@@ -67,7 +69,7 @@ final class NotificationService: NSObject, FocusNotifying, AutoFocusNotifying {
 
     // MARK: - Permission
 
-    func refreshPermission() async {
+    public func refreshPermission() async {
         guard !isSilenced else {
             // Screenshots: show the not-yet-asked state so the onboarding step is visible
             permission = .notDetermined
@@ -81,20 +83,12 @@ final class NotificationService: NSObject, FocusNotifying, AutoFocusNotifying {
     }
 
     /// Ask for permission (only shows the system prompt the first time), then refresh
-    func requestPermission() async {
+    public func requestPermission() async {
         await requestAuthorizationIfNeeded()
         await refreshPermission()
     }
 
-    /// Open System Settings → Notifications, for when the user denied permission earlier
-    func openSystemSettings() {
-        let id = Bundle.main.bundleIdentifier ?? ""
-        if let url = URL(string: "x-apple.systempreferences:com.apple.Notifications-Settings.extension?id=\(id)") {
-            NSWorkspace.shared.open(url)
-        }
-    }
-
-    func requestAuthorizationIfNeeded() async {
+    public func requestAuthorizationIfNeeded() async {
         guard !isSilenced else { return }
         let settings = await center.notificationSettings()
         guard settings.authorizationStatus == .notDetermined else { return }
@@ -105,19 +99,19 @@ final class NotificationService: NSObject, FocusNotifying, AutoFocusNotifying {
         }
     }
 
-    func scheduleBackup(at date: Date, title: String) {
+    public func scheduleBackup(at date: Date, title: String) {
         let interval = date.timeIntervalSinceNow
         guard !isSilenced, interval > 1 else { return }
         let trigger = UNTimeIntervalNotificationTrigger(timeInterval: interval, repeats: false)
         add(content(title: title), trigger: trigger)
     }
 
-    func cancelBackup() {
+    public func cancelBackup() {
         guard !isSilenced else { return }
         center.removePendingNotificationRequests(withIdentifiers: [Self.requestID])
     }
 
-    func scheduleProgress(_ reminders: [FocusProgressReminder], title: String) {
+    public func scheduleProgress(_ reminders: [FocusProgressReminder], title: String) {
         guard !isSilenced else { return }
         for reminder in reminders {
             let interval = reminder.date.timeIntervalSinceNow
@@ -135,7 +129,7 @@ final class NotificationService: NSObject, FocusNotifying, AutoFocusNotifying {
         }
     }
 
-    func cancelProgress() {
+    public func cancelProgress() {
         guard !isSilenced else { return }
         center.removePendingNotificationRequests(withIdentifiers: (1..<100).map { Self.progressID($0) })
     }
@@ -147,7 +141,7 @@ final class NotificationService: NSObject, FocusNotifying, AutoFocusNotifying {
     nonisolated private static let dailyReviewID = "daily-review"
 
     /// Reminds about tasks still unfinished today at the given time. Same identifier, so rescheduling overwrites
-    func scheduleDailyReview(at date: Date, title: String, body: String, calendar: Calendar) {
+    public func scheduleDailyReview(at date: Date, title: String, body: String, calendar: Calendar) {
         guard !isSilenced else { return }
         let content = UNMutableNotificationContent()
         content.title = title
@@ -162,14 +156,14 @@ final class NotificationService: NSObject, FocusNotifying, AutoFocusNotifying {
         }
     }
 
-    func cancelDailyReview() {
+    public func cancelDailyReview() {
         guard !isSilenced else { return }
         center.removePendingNotificationRequests(withIdentifiers: [Self.dailyReviewID])
     }
 
     // MARK: - Auto focus
 
-    func scheduleAutoFocusUpcoming(taskID: UUID, title: String, start: Date, at date: Date) {
+    public func scheduleAutoFocusUpcoming(taskID: UUID, title: String, start: Date, at date: Date) {
         let interval = date.timeIntervalSinceNow
         guard !isSilenced, interval > 1 else { return }
         let lead = max(Int((start.timeIntervalSince(date) / 60).rounded()), 1)
@@ -188,12 +182,12 @@ final class NotificationService: NSObject, FocusNotifying, AutoFocusNotifying {
         }
     }
 
-    func cancelAutoFocusUpcoming() {
+    public func cancelAutoFocusUpcoming() {
         guard !isSilenced else { return }
         center.removePendingNotificationRequests(withIdentifiers: [Self.upcomingID])
     }
 
-    func postAutoFocusStarted(taskID: UUID, title: String, plannedSeconds: Int) {
+    public func postAutoFocusStarted(taskID: UUID, title: String, plannedSeconds: Int) {
         guard !isSilenced else { return }
         center.removeDeliveredNotifications(withIdentifiers: [Self.upcomingID])
         let content = UNMutableNotificationContent()
@@ -205,7 +199,7 @@ final class NotificationService: NSObject, FocusNotifying, AutoFocusNotifying {
         postNow(content, identifier: Self.autoStartedID)
     }
 
-    func postAutoFocusConflict(taskID: UUID, title: String, currentTitle: String) {
+    public func postAutoFocusConflict(taskID: UUID, title: String, currentTitle: String) {
         guard !isSilenced else { return }
         center.removeDeliveredNotifications(withIdentifiers: [Self.upcomingID])
         let content = UNMutableNotificationContent()
@@ -224,11 +218,11 @@ final class NotificationService: NSObject, FocusNotifying, AutoFocusNotifying {
         }
     }
 
-    func postTimeUp(title: String) {
+    public func postTimeUp(title: String) {
         guard !isSilenced else { return }
         cancelBackup()
         add(content(title: title), trigger: nil)
-        NSSound(named: "Glass")?.play()
+        playTimeUpSound?()
     }
 
     private func content(title: String) -> UNMutableNotificationContent {
@@ -253,12 +247,12 @@ final class NotificationService: NSObject, FocusNotifying, AutoFocusNotifying {
 
 extension NotificationService: UNUserNotificationCenterDelegate {
     /// Show the banner and play sound even when the app is in the foreground
-    nonisolated func userNotificationCenter(_ center: UNUserNotificationCenter,
+    public nonisolated func userNotificationCenter(_ center: UNUserNotificationCenter,
                                             willPresent notification: UNNotification) async -> UNNotificationPresentationOptions {
         [.banner, .sound, .list]
     }
 
-    nonisolated func userNotificationCenter(_ center: UNUserNotificationCenter,
+    public nonisolated func userNotificationCenter(_ center: UNUserNotificationCenter,
                                             didReceive response: UNNotificationResponse) async {
         let identifier = response.actionIdentifier
         let taskID = (response.notification.request.content.userInfo[Self.taskIDKey] as? String).flatMap(UUID.init)
@@ -270,7 +264,7 @@ extension NotificationService: UNUserNotificationCenterDelegate {
                 onAction?(action)
             } else {
                 // tapped the notification itself: bring the app to the front
-                NSApp.activate(ignoringOtherApps: true)
+                onNotificationOpened?()
                 if isDailyReview { onDailyReviewOpened?() }
             }
         }
