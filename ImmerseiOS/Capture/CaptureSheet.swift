@@ -8,6 +8,7 @@ import SwiftUI
 /// - a request (「这周帮我找 2 小时写方案」) → the secretary plans it and shows a proposal on the calendar
 struct CaptureSheet: View {
     @Environment(TaskStore.self) private var taskStore
+    @Environment(NotificationService.self) private var notifications
     @Environment(ScheduleState.self) private var schedule
     @Environment(Secretary.self) private var secretary
     @Environment(\.dismiss) private var dismiss
@@ -278,6 +279,7 @@ struct CaptureSheet: View {
             }
         }
         guard let first = created.first else { return }
+        if created.contains(where: { $0.kind == .event }) { Task { await notifications.requestAuthorizationIfNeeded() } }
         if first.kind == .event { schedule.anchorDate = calendar.startOfDay(for: first.start) }
         taskStore.toast = Toast(message: created.count == 1 ? "已添加「\(first.displayTitle)」" : "已添加 \(created.count) 项", showsUndo: true)
         Haptics.success()

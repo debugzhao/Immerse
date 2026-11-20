@@ -98,10 +98,50 @@ final class AppModel {
         }
         focusEngine.restore()
         dailyReview.start()
-        autoFocus?.start()
+        autoFocus?.start(requestsPermission: false)
         if !isEphemeral { nudges.refresh() }
         Self.shared = self
+        #if DEBUG
+        applyScreenshotScene()
+        #endif
     }
+
+    #if DEBUG
+    /// Screenshot mode (IMMERSE_SNAPSHOT=1) can open a given screen, since simctl can't tap:
+    /// IMMERSE_TAB=schedule|planning|focus|stats, IMMERSE_MODE=day|threeDay|month,
+    /// IMMERSE_SHEET=capture|briefing|review, IMMERSE_PROPOSAL=1 (plan the Inbox), IMMERSE_FOCUS=1 (start a session)
+    private func applyScreenshotScene() {
+        guard PersistenceController.isSnapshotMode else { return }
+        let env = ProcessInfo.processInfo.environment
+        schedule.suggestion = nil
+        switch env["IMMERSE_TAB"] {
+        case "planning": schedule.selectedTab = .planning
+        case "focus": schedule.selectedTab = .focus
+        case "stats": schedule.selectedTab = .stats
+        default: break
+        }
+        if let mode = env["IMMERSE_MODE"].flatMap(ScheduleMode.init(rawValue:)) { schedule.mode = mode }
+        if env["IMMERSE_FOCUS"] == "1", let task = taskStore.tasks(in: schedule.visibleInterval).first(where: { !$0.isAllDay }) {
+            focusEngine.start(task)
+        }
+        let sheet = env["IMMERSE_SHEET"]
+        Task { [schedule] in
+            // Sheets can only be presented once the window is on screen
+            try? await Task.sleep(for: .milliseconds(800))
+            switch sheet {
+            case "capture": schedule.isCapturePresented = true
+            case "briefing": schedule.isBriefingPresented = true
+            case "review": schedule.isReviewPresented = true
+            default: break
+            }
+        }
+        if env["IMMERSE_PROPOSAL"] == "1" {
+            Task { [secretary, schedule] in
+                schedule.showProposal(await secretary.planInbox(), secretary: secretary)
+            }
+        }
+    }
+    #endif
 
     /// Background app refresh: rebuild tomorrow's briefing with the latest data
     func backgroundRefresh() {
@@ -118,6 +158,7 @@ final class AppModel {
         autoFocus?.evaluate()
         suggestReflowForMissedEvents()
         schedule.refreshClipboardHint()
+        nudges.canSubmitBackgroundRefresh = true
         if !PersistenceController.isEphemeral { nudges.refresh() }
     }
 
@@ -152,7 +193,7 @@ final class AppModel {
     private func suggestReflowForMissedEvents(now: Date = .now) {
         if let last = lastMissedCheck, now.timeIntervalSince(last) < 3600 { return }
         lastMissedCheck = now
-        guard !focusEngine.isActive, schedule.suggestion == nil else { return }
+        guard !focusEngine.isActive, schedule.suggestion == nil, !PersistenceController.isSnapshotMode else { return }
         let calendar = schedule.calendar
         let today = calendar.startOfDay(for: now)
         let missed = taskStore.tasks(in: DateInterval(start: today, end: now))

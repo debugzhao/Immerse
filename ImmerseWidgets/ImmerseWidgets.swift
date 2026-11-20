@@ -28,10 +28,13 @@ struct TodayProvider: TimelineProvider {
     }
 
     func getSnapshot(in context: Context, completion: @escaping (TodayEntry) -> Void) {
+        // WidgetKit's completion isn't Sendable; it is safe to call from the main actor
+        nonisolated(unsafe) let completion = completion
         Task { @MainActor in completion(TodayEntry(date: .now, tasks: SharedStore.todayTasks())) }
     }
 
     func getTimeline(in context: Context, completion: @escaping (Timeline<TodayEntry>) -> Void) {
+        nonisolated(unsafe) let completion = completion
         Task { @MainActor in
             let entry = TodayEntry(date: .now, tasks: SharedStore.todayTasks())
             // Refresh at the next half hour; the app also reloads timelines whenever tasks change

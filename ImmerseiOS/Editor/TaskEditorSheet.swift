@@ -8,6 +8,7 @@ struct TaskEditorSheet: View {
     let target: EditorTarget
 
     @Environment(TaskStore.self) private var taskStore
+    @Environment(NotificationService.self) private var notifications
     @Environment(FocusEngine.self) private var focusEngine
     @Environment(ScheduleState.self) private var schedule
     @Environment(Secretary.self) private var secretary
@@ -172,6 +173,8 @@ struct TaskEditorSheet: View {
             // Toggled on but the picker was never touched: it showed the event's end, so save that
             task.deadline = task.displayInterval(in: calendar).end
         }
+        // First thing scheduled: now notification permission makes sense (reminders, 「开始专注」 at the start time)
+        Task { await notifications.requestAuthorizationIfNeeded() }
         if isNew {
             _ = taskStore.create(task)
         } else if task != taskStore.task(id: task.id) {

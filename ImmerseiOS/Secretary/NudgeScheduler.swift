@@ -16,6 +16,9 @@ final class NudgeScheduler {
     private let notifications: NotificationService
     private let focusEngine: FocusEngine
     private let calendar: Calendar
+    /// BGTaskScheduler asserts if a request is submitted before SwiftUI registered the `.backgroundTask` handler,
+    /// which happens when the scene is built — so submitting waits until the app has become active once
+    var canSubmitBackgroundRefresh = false
     private var scheduledIDs: [String] {
         get { UserDefaults.standard.stringArray(forKey: "secretary.scheduledNudges") ?? [] }
         set { UserDefaults.standard.set(newValue, forKey: "secretary.scheduledNudges") }
@@ -64,6 +67,7 @@ final class NudgeScheduler {
 
     /// Ask iOS to wake the app early tomorrow so the morning briefing reflects overnight changes (best effort)
     private func scheduleBackgroundRefresh(now: Date) {
+        guard canSubmitBackgroundRefresh, !PersistenceController.isEphemeral else { return }
         let request = BGAppRefreshTaskRequest(identifier: Self.refreshTaskID)
         let tomorrow = calendar.date(byAdding: .day, value: 1, to: calendar.startOfDay(for: now)) ?? now
         request.earliestBeginDate = calendar.date(byAdding: .hour, value: 6, to: tomorrow)

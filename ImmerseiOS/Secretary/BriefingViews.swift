@@ -181,7 +181,9 @@ struct EveningReviewView: View {
                                     Spacer()
                                     Text(TimeText.hhmm(task.start, calendar: schedule.calendar)).font(.caption).foregroundStyle(.secondary)
                                 }
+                                .contentShape(Rectangle())
                             }
+                            .buttonStyle(.plain)
                         }
                         Button {
                             let tasks = review.unfinished.filter { carryIDs.contains($0.id) }

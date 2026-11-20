@@ -40,6 +40,9 @@ struct ScheduleView: View {
         @Bindable var schedule = schedule
         NavigationStack {
             VStack(spacing: 0) {
+                if let suggestion = schedule.suggestion {
+                    SuggestionBanner(suggestion: suggestion).padding(.vertical, 6)
+                }
                 if schedule.mode == .month {
                     MonthGridView()
                 } else {
@@ -51,11 +54,6 @@ struct ScheduleView: View {
             }
             .navigationTitle(schedule.title)
             .navigationBarTitleDisplayMode(.inline)
-            .overlay(alignment: .top) {
-                if let suggestion = schedule.suggestion {
-                    SuggestionBanner(suggestion: suggestion).padding(.top, 4)
-                }
-            }
             .safeAreaInset(edge: .bottom) {
                 if let proposal = secretary.activeProposal {
                     ProposalBar(proposal: proposal).transition(.move(edge: .bottom).combined(with: .opacity))
@@ -121,6 +119,8 @@ struct DayHeaderRow: View {
                 .buttonStyle(.plain)
             }
         }
+        // The gutter spacer is a Color, which would otherwise stretch to take a share of the screen's height
+        .fixedSize(horizontal: false, vertical: true)
     }
 }
 

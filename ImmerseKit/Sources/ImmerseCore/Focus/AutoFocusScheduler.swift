@@ -135,9 +135,11 @@ public final class AutoFocusScheduler {
         handled = (defaults.dictionary(forKey: Self.handledKey) as? [String: Double]) ?? [:]
     }
 
-    /// Starts checking: right away, whenever tasks or the setting change, and every few seconds
-    public func start() {
-        Task { await notifier.requestAuthorizationIfNeeded() }
+    /// Starts checking: right away, whenever tasks or the setting change, and every few seconds.
+    /// - Parameter requestsPermission: macOS asks for notification permission at launch; iOS waits until the user
+    ///   first schedules or starts something (asking out of context is an App Review red flag)
+    public func start(requestsPermission: Bool = true) {
+        if requestsPermission { Task { await notifier.requestAuthorizationIfNeeded() } }
         evaluate()
         observeChanges()
         loop = Task { [weak self] in
