@@ -48,6 +48,10 @@ final class AppEnvironment {
 
         notifications.onAction = { [focusEngine] action in focusEngine.handle(action) }
         notifications.onAutoFocusAction = { [autoFocus] action, taskID in autoFocus?.handle(action, taskID: taskID) }
+        // The review mentions the Inbox and lagging goals: open the planning panel so they're right there
+        notifications.onDailyReviewOpened = {
+            UserDefaults.standard.set(true, forKey: PlanningPanel.visibilityKey)
+        }
         if !isEphemeral {
             focusEngine.onStarted = { [clockTimer] session in
                 clockTimer.startIfEnabled(minutes: max(session.plannedSeconds / 60, 1))

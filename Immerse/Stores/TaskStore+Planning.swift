@@ -47,9 +47,11 @@ extension TaskStore {
     /// Dropped on the calendar. An idea becomes an event at that time; a goal gets a new linked session.
     /// Returns the event that now sits on the calendar.
     @discardableResult
-    func schedule(_ id: UUID, at start: Date, allDay: Bool = false, calendar: Calendar = .app) -> TaskSnapshot? {
+    /// - Parameter minutes: length of the booked block; defaults to 60 (an idea's planned duration if it has one)
+    func schedule(_ id: UUID, at start: Date, allDay: Bool = false, minutes: Int? = nil,
+                  calendar: Calendar = .app) -> TaskSnapshot? {
         guard let source = task(id: id) else { return nil }
-        let minutes = source.kind == .goal ? 60 : (source.plannedMinutes ?? 60)
+        let minutes = minutes ?? (source.kind == .goal ? 60 : (source.plannedMinutes ?? 60))
         let day = calendar.startOfDay(for: start)
         switch source.kind {
         case .idea:

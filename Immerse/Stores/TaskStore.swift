@@ -65,7 +65,8 @@ final class TaskStore {
         _ = revision
         return (attempt("读取收集箱") { try repository.tasks(kind: .idea) } ?? []).sorted { a, b in
             switch (a.sortOrder, b.sortOrder) {
-            case (nil, nil): a.start > b.start
+            // Ties broken by id so the order never flips between redraws (sorting isn't stable)
+            case (nil, nil): a.start != b.start ? a.start > b.start : a.id.uuidString < b.id.uuidString
             case (nil, _): true
             case (_, nil): false
             case let (x?, y?): x < y

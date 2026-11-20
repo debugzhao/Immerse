@@ -55,6 +55,8 @@ final class NotificationService: NSObject, FocusNotifying, AutoFocusNotifying {
     @ObservationIgnored var onAction: ((FocusNotificationAction) -> Void)?
     /// The user tapped a button on an auto-focus notification (the UUID is the event's)
     @ObservationIgnored var onAutoFocusAction: ((AutoFocusAction, UUID) -> Void)?
+    /// The daily review notification was tapped
+    @ObservationIgnored var onDailyReviewOpened: (() -> Void)?
 
     static let upcomingCategoryID = "AUTO_FOCUS_UPCOMING"
     static let autoStartedCategoryID = "AUTO_FOCUS_STARTED"
@@ -168,7 +170,7 @@ final class NotificationService: NSObject, FocusNotifying, AutoFocusNotifying {
 
     // MARK: - Daily review
 
-    private static let dailyReviewID = "daily-review"
+    nonisolated private static let dailyReviewID = "daily-review"
 
     /// Reminds about tasks still unfinished today at the given time. Same identifier, so rescheduling overwrites
     func scheduleDailyReview(at date: Date, title: String, body: String, calendar: Calendar) {
@@ -286,6 +288,7 @@ extension NotificationService: UNUserNotificationCenterDelegate {
                                             didReceive response: UNNotificationResponse) async {
         let identifier = response.actionIdentifier
         let taskID = (response.notification.request.content.userInfo[Self.taskIDKey] as? String).flatMap(UUID.init)
+        let isDailyReview = response.notification.request.identifier == Self.dailyReviewID
         await MainActor.run {
             if let action = AutoFocusAction(rawValue: identifier), let taskID {
                 onAutoFocusAction?(action, taskID)
@@ -294,6 +297,7 @@ extension NotificationService: UNUserNotificationCenterDelegate {
             } else {
                 // tapped the notification itself: bring the app to the front
                 NSApp.activate(ignoringOtherApps: true)
+                if isDailyReview { onDailyReviewOpened?() }
             }
         }
     }

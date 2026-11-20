@@ -17,6 +17,14 @@ struct AllDayRowView: View {
         var id: UUID { task.id }
     }
 
+    /// Changes whenever a bar moves, so it is rebuilt instead of keeping AppKit hit-testing from its old place
+    private struct BarKey: Hashable {
+        let id: UUID
+        let startDay: Int
+        let endDay: Int
+        let lane: Int
+    }
+
     var body: some View {
         let bars = makeBars()
         let lanes = EventLayoutEngine.allDayLanes(bars.map { ($0.id, $0.startDay, $0.endDay) })
@@ -57,8 +65,11 @@ struct AllDayRowView: View {
                         AllDayBarView(task: bar.task, isSelected: store.selectedTaskID == bar.id)
                             .frame(width: columnWidth * span - 4, height: CalendarMetrics.allDayLaneHeight - 3)
                             .gesture(moveGesture(bar.task, columnWidth: columnWidth))
-                            .offset(x: columnWidth * (CGFloat(bar.startDay) + shift) + 2,
-                                    y: lane * CalendarMetrics.allDayLaneHeight + 3)
+                            // Live drag feedback only; the resting position goes through layout (see DayColumnView)
+                            .offset(x: columnWidth * shift)
+                            .padding(.leading, columnWidth * CGFloat(bar.startDay) + 2)
+                            .padding(.top, lane * CalendarMetrics.allDayLaneHeight + 3)
+                            .id(BarKey(id: bar.id, startDay: bar.startDay, endDay: bar.endDay, lane: lanes[bar.id] ?? 0))
                     }
 
                     if let index = draftDayIndex {

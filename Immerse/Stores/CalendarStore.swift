@@ -85,6 +85,8 @@ final class CalendarStore {
     var isCommandPalettePresented = false
     /// Reopened from Help → 重新查看引导
     var isOnboardingPresented = false
+    /// "今日规划" sheet: once a day automatically, or from the View menu
+    var isDailyPlanPresented = false
     /// Time grid scroll request: each newly assigned value triggers one scroll
     var scrollRequest = ScrollRequest(hour: 8) {
         // An explicit scroll request (reveal, ⌘N) wins over the remembered position

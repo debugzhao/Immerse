@@ -89,6 +89,14 @@ private struct ReminderSettingsTab: View {
             }
 
             Section {
+                Toggle("每天第一次打开时弹出今日规划", isOn: $settings.dailyPlanEnabled)
+            } header: {
+                Text("今日规划")
+            } footer: {
+                footnote("列出收集箱里的想法和进度落后的目标，点「安排」放进今天的空闲时段。也可以从菜单「显示 → 今日规划…」随时打开。") { EmptyView() }
+            }
+
+            Section {
                 Toggle("每天提醒我还没完成的任务", isOn: $settings.dailyReviewEnabled)
                 if settings.dailyReviewEnabled {
                     DatePicker("提醒时间", selection: reviewTime, displayedComponents: .hourAndMinute)
@@ -96,7 +104,7 @@ private struct ReminderSettingsTab: View {
             } header: {
                 Text("每日复盘")
             } footer: {
-                footnote("到点列出当天没完成的任务；全部完成会发一条祝贺，当天没有任务则不提醒。App 没开着也会按时提醒。") { EmptyView() }
+                footnote("到点列出当天没完成的任务、进度落后的目标和收集箱里的想法；全部完成会发一条祝贺。当天没有任务时，只在有目标落后或想法搁置超过 7 天时提醒。App 没开着也会按时提醒。") { EmptyView() }
             }
 
             Section {

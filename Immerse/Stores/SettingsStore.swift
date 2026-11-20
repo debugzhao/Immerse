@@ -17,6 +17,8 @@ final class SettingsStore {
         static let clockTimerEnabled = "clockTimer.enabled"
         static let clockTimerShortcut = "clockTimer.shortcut"
         static let autoFocusEnabled = "autoFocus.enabled"
+        static let dailyPlanEnabled = "dailyPlan.enabled"
+        static let dailyPlanLastShown = "dailyPlan.lastShown"
     }
 
     static let defaultClockTimerShortcut = "Immerse 开始计时"
@@ -47,6 +49,10 @@ final class SettingsStore {
     var clockTimerShortcut: String { didSet { defaults.set(clockTimerShortcut, forKey: Key.clockTimerShortcut) } }
     /// Start focusing automatically when a timed event begins
     var autoFocusEnabled: Bool { didSet { defaults.set(autoFocusEnabled, forKey: Key.autoFocusEnabled) } }
+    /// Pop up "今日规划" the first time the app is opened each day
+    var dailyPlanEnabled: Bool { didSet { defaults.set(dailyPlanEnabled, forKey: Key.dailyPlanEnabled) } }
+    /// When "今日规划" was last shown, so it only appears once a day
+    var dailyPlanLastShown: Date? { didSet { defaults.set(dailyPlanLastShown, forKey: Key.dailyPlanLastShown) } }
 
     func toggleMilestone(_ percent: Int) {
         if progressMilestones.contains(percent) {
@@ -67,6 +73,7 @@ final class SettingsStore {
             Key.clockTimerEnabled: true,
             Key.clockTimerShortcut: Self.defaultClockTimerShortcut,
             Key.autoFocusEnabled: true,
+            Key.dailyPlanEnabled: true,
         ])
         dndEnabled = defaults.bool(forKey: Key.dndEnabled)
         dndOnShortcut = defaults.string(forKey: Key.dndOnShortcut) ?? Self.defaultOnShortcut
@@ -79,5 +86,7 @@ final class SettingsStore {
         clockTimerEnabled = defaults.bool(forKey: Key.clockTimerEnabled)
         clockTimerShortcut = defaults.string(forKey: Key.clockTimerShortcut) ?? Self.defaultClockTimerShortcut
         autoFocusEnabled = defaults.bool(forKey: Key.autoFocusEnabled)
+        dailyPlanEnabled = defaults.bool(forKey: Key.dailyPlanEnabled)
+        dailyPlanLastShown = defaults.object(forKey: Key.dailyPlanLastShown) as? Date
     }
 }

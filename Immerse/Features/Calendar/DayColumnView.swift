@@ -26,6 +26,14 @@ struct DayColumnView: View {
         let start: Date
         let end: Date
         var id: UUID { task.id }
+        /// Changes whenever the event moves or is resized
+        var placementKey: PlacementKey { PlacementKey(id: task.id, start: start, end: end) }
+    }
+
+    private struct PlacementKey: Hashable {
+        let id: UUID
+        let start: Date
+        let end: Date
     }
 
     private var calendar: Calendar { store.calendar }
@@ -46,6 +54,9 @@ struct DayColumnView: View {
                     if let placement = placements[segment.id] {
                         block(for: segment, placement: placement, displayEnd: displayEnds[segment.id] ?? segment.end,
                               columnWidth: width)
+                            // Rebuild a block once it moves or is resized: AppKit-backed pieces (context menu, tooltip,
+                            // hit-testing shape) otherwise stay wired to the old order and a moved event opened its neighbor
+                            .id(segment.placementKey)
                     }
                 }
 
@@ -132,7 +143,10 @@ struct DayColumnView: View {
         }
         .gesture(dragGesture(segment.task, mode: .move, columnWidth: columnWidth))
         .opacity(isDragging ? 0.35 : 1)
-        .offset(x: slotWidth * CGFloat(placement.column) + 1, y: top + 1)
+        // Position through layout, not `.offset`: offset only moves the drawing, so every block's real frame would sit
+        // at the column's top-left and AppKit hit-testing (right-click, tooltips) could resolve to the wrong event
+        .padding(.leading, slotWidth * CGFloat(placement.column) + 1)
+        .padding(.top, top + 1)
     }
 
     private func dragGesture(_ task: TaskSnapshot, mode: EventDragMode, columnWidth: CGFloat) -> some Gesture {

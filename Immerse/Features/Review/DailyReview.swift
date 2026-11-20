@@ -5,6 +5,31 @@ import Observation
 enum DailyReview {
     static let maxListed = 5
 
+    /// What's waiting in the Inbox, so the evening review can nudge about it
+    struct InboxSummary: Equatable {
+        let count: Int
+        /// Days the oldest idea has been sitting there
+        let oldestDays: Int
+
+        init?(ideas: [TaskSnapshot], now: Date, calendar: Calendar) {
+            guard !ideas.isEmpty else { return nil }
+            count = ideas.count
+            oldestDays = ideas.map { IdeaStaleness.days(of: $0, now: now, calendar: calendar) }.max() ?? 0
+        }
+
+        init(count: Int, oldestDays: Int) {
+            self.count = count
+            self.oldestDays = oldestDays
+        }
+
+        /// Ideas only earn a reminder of their own once something has been left for a while
+        var isLingering: Bool { oldestDays >= IdeaStaleness.agingDays }
+
+        var line: String {
+            isLingering ? "收集箱还有 \(count) 条想法，最久的已搁置 \(oldestDays) 天" : "收集箱还有 \(count) 条想法"
+        }
+    }
+
     /// Next reminder time: today if today's reminder time hasn't passed, otherwise tomorrow
     static func nextFireDate(after now: Date, minutes: Int, calendar: Calendar) -> Date {
         let today = calendar.startOfDay(for: now)
@@ -14,12 +39,19 @@ enum DailyReview {
         return tomorrow.addingTimeInterval(TimeInterval(minutes * 60))
     }
 
-    /// Returns nil when that day has no tasks and no goal is behind (no reminder).
-    /// `behindGoals` are lines like "读完《纳瓦尔宝典》 30%", appended under the task list.
-    static func content(for tasks: [TaskSnapshot], behindGoals: [String] = [], calendar: Calendar) -> (title: String, body: String)? {
-        let goalLines = behindGoals.isEmpty ? [] : ["", "进度落后的目标："] + behindGoals.map { "· \($0)" }
+    /// Returns nil when that day has no tasks, no goal is behind and nothing has lingered in the Inbox (no reminder).
+    /// `behindGoals` are lines like "读完《纳瓦尔宝典》 30%", appended under the task list; the Inbox line comes last.
+    static func content(for tasks: [TaskSnapshot], behindGoals: [String] = [], inbox: InboxSummary? = nil,
+                        calendar: Calendar) -> (title: String, body: String)? {
+        let inboxLines = inbox.map { ["", $0.line] } ?? []
+        let goalLines = (behindGoals.isEmpty ? [] : ["", "进度落后的目标："] + behindGoals.map { "· \($0)" }) + inboxLines
         guard !tasks.isEmpty else {
-            return behindGoals.isEmpty ? nil : ("有 \(behindGoals.count) 个目标进度落后", behindGoals.map { "· \($0)" }.joined(separator: "\n"))
+            if !behindGoals.isEmpty {
+                return ("有 \(behindGoals.count) 个目标进度落后",
+                        (behindGoals.map { "· \($0)" } + inboxLines).joined(separator: "\n"))
+            }
+            guard let inbox, inbox.isLingering else { return nil }
+            return ("收集箱还有 \(inbox.count) 条想法", "最久的已搁置 \(inbox.oldestDays) 天，花几分钟把它们安排进日历吧")
         }
         let unfinished = tasks
             .filter { $0.status != .done }
@@ -82,8 +114,10 @@ final class DailyReviewScheduler {
         }
         let fire = DailyReview.nextFireDate(after: now, minutes: settings.dailyReviewMinutes, calendar: calendar)
         guard let day = calendar.dateInterval(of: .day, for: fire),
-              let content = DailyReview.content(for: taskStore.tasks(in: day), behindGoals: behindGoals(fire),
-                                                calendar: calendar) else {
+              let content = DailyReview.content(
+                for: taskStore.tasks(in: day), behindGoals: behindGoals(fire),
+                inbox: DailyReview.InboxSummary(ideas: taskStore.ideas(), now: fire, calendar: calendar),
+                calendar: calendar) else {
             notifications.cancelDailyReview()
             return
         }

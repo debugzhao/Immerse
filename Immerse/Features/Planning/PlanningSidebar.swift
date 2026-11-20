@@ -2,15 +2,18 @@ import SwiftUI
 
 // MARK: - Inbox
 
-/// Sidebar Inbox panel: ideas that aren't scheduled yet. Type to capture, drag a row onto the calendar to schedule it
+/// Planning panel Inbox section: ideas that aren't scheduled yet. Type to capture, drag a row onto the calendar to schedule it
 struct InboxSection: View {
     @Environment(TaskStore.self) private var taskStore
+    @Environment(CalendarStore.self) private var store
     @State private var isExpanded = false
 
     var body: some View {
         let ideas = taskStore.ideas()
+        let lingering = ideas.filter { IdeaStaleness.of($0, now: .now, calendar: store.calendar) != .fresh }.count
         VStack(alignment: .leading, spacing: 8) {
-            SidebarSectionHeader(title: "收集箱", trailing: "\(ideas.count)")
+            SidebarSectionHeader(title: "收集箱", icon: "tray", trailing: "\(ideas.count)",
+                                 badge: lingering > 0 ? "\(lingering) 条搁置" : nil)
             VStack(spacing: 2) {
                 QuickAddField(placeholder: "记个想法…", icon: "plus") { taskStore.captureIdea($0) }
                 if ideas.isEmpty {
@@ -41,6 +44,10 @@ private struct IdeaRow: View {
                 .font(.system(size: 12))
                 .lineLimit(1)
             Spacer(minLength: 0)
+            let staleness = IdeaStaleness.of(idea, now: .now, calendar: store.calendar)
+            if let days = staleness.days {
+                AttentionPill(text: "搁置 \(days) 天", color: staleness.color)
+            }
         }
         .onTapGesture { store.openEditor(idea.id) }
         .draggable(idea.id.uuidString) { DragChip(title: idea.displayTitle, icon: "lightbulb") }
@@ -67,19 +74,23 @@ private struct IdeaRow: View {
 
 // MARK: - Goals
 
-/// Sidebar Goals panel: this week / this month, with progress. Drag a goal onto the calendar to book a session for it
+/// Planning panel Goals section: this week / this month, with progress. Drag a goal onto the calendar to book a session for it
 struct GoalsSection: View {
     @Environment(TaskStore.self) private var taskStore
     @Environment(CalendarStore.self) private var store
+    @Environment(FocusEngine.self) private var focusEngine
     @State private var period: GoalPeriod = .month
     @State private var isExpanded = false
 
     var body: some View {
         let goals = Self.activeGoals(taskStore: taskStore, calendar: store.calendar)
+        let behind = Self.behindGoals(goals, taskStore: taskStore, focusEngine: focusEngine, calendar: store.calendar).count
         VStack(alignment: .leading, spacing: 8) {
             SidebarSectionHeader(
                 title: "目标",
-                trailing: "\(goals.filter { $0.status == .done }.count)/\(goals.count)"
+                icon: "target",
+                trailing: "\(goals.filter { $0.status == .done }.count)/\(goals.count)",
+                badge: behind > 0 ? "\(behind) 个落后" : nil
             )
             VStack(spacing: 2) {
                 QuickAddField(placeholder: "新的\(period.title)目标…", icon: "plus") {
@@ -103,6 +114,15 @@ struct GoalsSection: View {
                 }
                 ExpandToggleRow(total: goals.count, isExpanded: $isExpanded)
             }
+        }
+    }
+
+    /// Unfinished goals whose progress is behind the time elapsed in their period
+    @MainActor
+    static func behindGoals(_ goals: [TaskSnapshot], taskStore: TaskStore, focusEngine: FocusEngine,
+                            calendar: Calendar) -> [TaskSnapshot] {
+        goals.filter {
+            $0.status != .done && goalProgress($0, taskStore: taskStore, focusEngine: focusEngine, calendar: calendar).isBehind
         }
     }
 

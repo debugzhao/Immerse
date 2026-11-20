@@ -5,6 +5,7 @@ struct RootView: View {
     @Environment(FocusEngine.self) private var focusEngine
     @Environment(SettingsStore.self) private var settings
     @Environment(CalendarStore.self) private var calendarStore
+    @Environment(TaskStore.self) private var taskStore
     @Environment(UpdateChecker.self) private var updater
     @Environment(\.openWindow) private var openWindow
     @Environment(\.openSettings) private var openSettings
@@ -65,7 +66,14 @@ struct RootView: View {
         .sheet(item: Bindable(calendarStore).pendingImport) { preview in
             ImportPreviewView(preview: preview)
         }
+        .sheet(isPresented: Bindable(calendarStore).isDailyPlanPresented) {
+            DailyPlanView()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
+            presentDailyPlanIfDue()
+        }
         .onAppear {
+            presentDailyPlanIfDue()
             AppIcon.install()
             if DebugFlags.openStats { openWindow(id: "stats") }
             if DebugFlags.openSettings { openSettings() }
@@ -99,6 +107,20 @@ struct RootView: View {
         case .failed(let message): message
         case nil: ""
         }
+    }
+
+    /// Once a day, the first time the app comes to the front: the Inbox and lagging goals next to today's free time
+    private func presentDailyPlanIfDue(now: Date = .now) {
+        guard settings.onboardingCompleted, !PersistenceController.isEphemeral,
+              !calendarStore.isDailyPlanPresented, !calendarStore.isEditorPresented else { return }
+        let calendar = calendarStore.calendar
+        let hasContent = !taskStore.ideas().isEmpty || !GoalsSection.behindGoals(
+            GoalsSection.activeGoals(taskStore: taskStore, calendar: calendar),
+            taskStore: taskStore, focusEngine: focusEngine, calendar: calendar).isEmpty
+        guard DailyPlan.shouldPresent(lastShown: settings.dailyPlanLastShown, now: now, hasContent: hasContent,
+                                      isEnabled: settings.dailyPlanEnabled, calendar: calendar) else { return }
+        settings.dailyPlanLastShown = now
+        calendarStore.isDailyPlanPresented = true
     }
 
     private func finishOnboarding() {

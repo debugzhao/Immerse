@@ -89,6 +89,14 @@ enum DebugSnapshot {
         if env["IMMERSE_EDIT_GOAL"] != nil, let goal = environment.taskStore.goals().last {
             environment.calendarStore.openEditor(goal.id)
         }
+        // IMMERSE_DAILY_PLAN=1: open the "今日规划" sheet
+        if env["IMMERSE_DAILY_PLAN"] != nil {
+            environment.calendarStore.isDailyPlanPresented = true
+        }
+        // IMMERSE_PLANNING_PANEL=0|1: force the planning panel closed / open
+        if let raw = env["IMMERSE_PLANNING_PANEL"] {
+            UserDefaults.standard.set(raw != "0", forKey: PlanningPanel.visibilityKey)
+        }
         // IMMERSE_CREATE=1: open the create sheet (same as ⌘N)
         if env["IMMERSE_CREATE"] != nil {
             let interval = environment.calendarStore.defaultNewEventInterval()

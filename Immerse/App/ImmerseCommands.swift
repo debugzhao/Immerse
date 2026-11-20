@@ -61,6 +61,7 @@ struct ImmerseCommands: Commands {
             Button("周视图") { calendarStore.mode = .week }
             Button("月视图") { calendarStore.mode = .month }
             Divider()
+            Button("今日规划…") { calendarStore.isDailyPlanPresented = true }
             Button("进入沉浸模式") { focusEngine.isImmersivePresented = true }
                 .keyboardShortcut("f", modifiers: [.command, .control])
                 .disabled(!focusEngine.isActive)

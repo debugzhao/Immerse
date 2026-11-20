@@ -9,14 +9,54 @@ struct CalendarContainerView: View {
     @FocusState private var isSearchFocused: Bool
     /// Opacity of the time grid during a day ↔ week switch
     @State private var gridFade: Double = 1
+    /// The user's choice for the planning panel, remembered across launches
+    @AppStorage(PlanningPanel.visibilityKey) private var isPanelPreferred = true
+    /// Shown floating over the calendar when the window is too narrow to keep it docked
+    @State private var isPanelFloating = false
+    @State private var detailWidth: CGFloat = 1200
+
+    private var panelFitsDocked: Bool {
+        detailWidth - PlanningPanel.width >= PlanningPanel.minimumCalendarWidth
+    }
+
+    /// What the toolbar toggle controls: the remembered preference when there's room, a floating panel otherwise
+    private var panelVisibility: Binding<Bool> {
+        Binding(
+            get: { panelFitsDocked ? isPanelPreferred : isPanelFloating },
+            set: { if panelFitsDocked { isPanelPreferred = $0 } else { isPanelFloating = $0 } }
+        )
+    }
 
     var body: some View {
         @Bindable var store = store
 
         // The toolbar is attached outside the single-key shortcut handlers below. If the search field sat inside them,
         // onKeyPress would grab key presses before the input method and Chinese (pinyin) input would break.
-        calendarArea
-            .toolbar { toolbarContent(store: $store) }
+        HStack(spacing: 0) {
+            calendarArea
+            if panelFitsDocked && isPanelPreferred {
+                PlanningPanel()
+                    .transition(.move(edge: .trailing))
+            }
+        }
+        .overlay(alignment: .trailing) {
+            if !panelFitsDocked && isPanelFloating {
+                PlanningPanel()
+                    .shadow(color: .black.opacity(0.15), radius: 12, x: -2)
+                    .transition(.move(edge: .trailing))
+            }
+        }
+        .background {
+            GeometryReader { geometry in
+                Color.clear
+                    .onAppear { detailWidth = geometry.size.width }
+                    .onChange(of: geometry.size.width) { _, width in detailWidth = width }
+            }
+        }
+        .onChange(of: panelFitsDocked) { _, fits in
+            if fits { isPanelFloating = false }
+        }
+        .toolbar { toolbarContent(store: $store) }
     }
 
     private var calendarArea: some View {
@@ -137,6 +177,8 @@ struct CalendarContainerView: View {
             .help("命令面板（⌘K）")
 
             searchField(text: store.searchText)
+
+            PlanningPanelToggle(isVisible: panelVisibility)
         }
     }
 
