@@ -1,0 +1,62 @@
+# Builds the iPhone app with Xcode 26 and uploads it to TestFlight.
+# Runs only when triggered by hand or by an `ios-v*` tag, and only does anything once these repository
+# secrets exist: APPLE_TEAM_ID, ASC_KEY_ID, ASC_ISSUER_ID, ASC_KEY_P8_BASE64 (App Store Connect API key, base64 of the .p8).
+name: iOS TestFlight
+
+on:
+  workflow_dispatch:
+  push:
+    tags: ["ios-v*"]
+
+jobs:
+  testflight:
+    runs-on: macos-15
+    timeout-minutes: 60
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_26.3.app/Contents/Developer
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check secrets
+        env:
+          TEAM: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          if [ -z "$TEAM" ]; then echo "::error::APPLE_TEAM_ID and the ASC_* secrets are not set"; exit 1; fi
+
+      - name: Generate the Xcode project
+        run: |
+          brew install xcodegen
+          xcodegen generate
+
+      - name: Test shared code
+        run: |
+          cd ImmerseKit
+          xcodebuild -scheme ImmerseKit-Package -destination 'platform=macOS' -quiet test
+
+      - name: Archive
+        env:
+          TEAM: ${{ secrets.APPLE_TEAM_ID }}
+          KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ISSUER: ${{ secrets.ASC_ISSUER_ID }}
+          KEY_P8: ${{ secrets.ASC_KEY_P8_BASE64 }}
+        run: |
+          echo "$KEY_P8" | base64 --decode > "$RUNNER_TEMP/AuthKey.p8"
+          xcodebuild -project Immerse.xcodeproj -scheme ImmerseiOS -configuration Release \
+            -destination 'generic/platform=iOS' -archivePath "$RUNNER_TEMP/ImmerseiOS.xcarchive" \
+            -allowProvisioningUpdates -authenticationKeyPath "$RUNNER_TEMP/AuthKey.p8" \
+            -authenticationKeyID "$KEY_ID" -authenticationKeyIssuerID "$ISSUER" \
+            DEVELOPMENT_TEAM="$TEAM" CODE_SIGN_STYLE=Automatic CODE_SIGN_IDENTITY="Apple Development" \
+            CURRENT_PROJECT_VERSION="${{ github.run_number }}" \
+            archive
+
+      - name: Upload to TestFlight
+        env:
+          TEAM: ${{ secrets.APPLE_TEAM_ID }}
+          KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ISSUER: ${{ secrets.ASC_ISSUER_ID }}
+        run: |
+          sed "s/TEAM_ID_PLACEHOLDER/$TEAM/" ci/ExportOptions.plist > "$RUNNER_TEMP/ExportOptions.plist"
+          xcodebuild -exportArchive -archivePath "$RUNNER_TEMP/ImmerseiOS.xcarchive" \
+            -exportOptionsPlist "$RUNNER_TEMP/ExportOptions.plist" -exportPath "$RUNNER_TEMP/export" \
+            -allowProvisioningUpdates -authenticationKeyPath "$RUNNER_TEMP/AuthKey.p8" \
+            -authenticationKeyID "$KEY_ID" -authenticationKeyIssuerID "$ISSUER"

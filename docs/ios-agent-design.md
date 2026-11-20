@@ -528,6 +528,19 @@ LLM **看不到**任何直接写数据的工具：`create_task` / `update_task` 
 
 **怎么测**：`scripts/test-kit.sh` 在 macOS 上跑包内测试，再用 iOS 17 模拟器 SDK 交叉编译库和测试；Mac 端测试照常用 Xcode 跑 `Immerse` scheme。
 
+### 8.2 M1–M6 实现记录（2026-11-20，分支 `feat/immersekit`）
+
+| 里程碑 | 提交 | 完成情况 | 和计划不同 / 遗留 |
+|---|---|---|---|
+| M1 数据层 | `7f979bb` | ✅ CloudKit 兼容的 V2 模型（去掉唯一约束、全部默认值、关系可选）、新字段、`MemoryItem` / `ProfileSetting`、`DedupeService`、`SyncMonitor`、App Group 存储路径、CloudKit 开关（Info.plist 填容器 ID 即开启） | **没有用 `MigrationPlan`**：测试证明从 0.1.0 和 0.1.9 两种真实布局的老库都能靠自动轻量迁移升级，你本机真实数据库的副本（15 个任务、10 条专注）也升级成功。Mac 版 Developer ID 签名、真正开启 iCloud 需要开发者账号，见 `docs/app-store.md` |
+| M2 iOS 核心界面 | `67065c5` | ✅ 四个 Tab、日 / 3 日 / 月视图、长按拖动移动和改时长（每 15 分钟一次触感）、编辑 sheet、「+」收集、规划、专注页、沉浸模式、统计、设置 | 通知服务和晚间复盘调度也搬进了 `ImmerseCore`，两端共用 |
+| M3 Agent 基础 | `c1a4e18` | ✅ `ImmerseAgent`：找空档、能量曲线、排期、重排、负载、截止风险、估时校准、目标节奏、专注前简报、提案校验与一步撤销、严格模式工具层、工具循环、Claude HTTP 客户端、结构化收集 / 拆分 / 记忆、Keychain 存 Key；iOS：幽灵日程、提案栏、建议横幅、语音、粘贴、EventKit 只读 | 收集评测集 20 条已写好（`capture-eval.json`），**需要真实 Key 才能跑**（会产生费用），还没有跑 |
+| M4 主动秘书 | `4b2e420` | ✅ 晨间简报、晚间复盘页、截止和过载提醒、每日推送预算、专注期间推迟、后台刷新、通知上的「开始专注」、Live Activity + 灵动岛（暂停 / 完成按钮）、可交互「今天」小组件、Siri / 快捷指令（记一下、开始专注、排进本周）、Focus Filter | 小组件写入走共享 App Group 库；App 回到前台会重读 |
+| M5 洞察 | `3e7d0d8` | ✅ 高效时段图、估时偏差与采纳、目标拆成节奏（AI 估算时长或手动）、秘书记忆管理页、按截止日倒推 | — |
+| M6 上线准备 | 本次 | ✅ 隐私清单、TestFlight 自动上传流程、导出配置、隐私政策草稿、商店文案和审核备注、上架清单 | 账号、备案、截图、提交需要你本人完成，见 `docs/app-store.md` |
+
+**测试**：`ImmerseCore` 114 个 + `ImmerseAgent` 54 个 + Mac 端 76 个，全部通过；iOS App 和小组件用 `scripts/typecheck-ios.sh` 对 iOS 17 SDK 做了完整类型检查。iOS 模拟器上的运行验证见本节末尾。
+
 ## 9. 测试策略
 
 | 层 | 方法 |
@@ -564,7 +577,7 @@ LLM **看不到**任何直接写数据的工具：`create_task` / `update_task` 
 
 | # | 问题 | 选项 | 我的推荐 |
 |---|---|---|---|
-| 1 | ✅ **已定（2026-11-20）：先用 B（用户自己填 Key）**，A 留作上架后的可选项<br>**LLM API Key 方案** | **A. 轻量代理后端**：例如 Cloudflare Worker，用官方 TypeScript SDK 转发 `/v1/messages`；用 Sign in with Apple 或 App Attest 鉴权，并按用户限额。优点：Key 不会落到设备上，能控制费用，以后可以收费。缺点：要维护一个服务，需要域名和备案，有运营成本。<br>**B. 用户自己填 Key**：存在 Keychain 里，App 直接调用 `api.anthropic.com`。优点：零后端，开发最快。缺点：普通用户门槛高，审核可能质疑，费用由用户承担 | **先 B 后 A**：M3、M4 用 B 自用和内测，上架前（M6）补上 A，B 作为“高级选项”保留 |
+| 1 | ✅ **已定（2026-11-20）：先用 B（用户自己填 Key）**，已在 M3 实现，A 留作上架后的可选项<br>**LLM API Key 方案** | **A. 轻量代理后端**：例如 Cloudflare Worker，用官方 TypeScript SDK 转发 `/v1/messages`；用 Sign in with Apple 或 App Attest 鉴权，并按用户限额。优点：Key 不会落到设备上，能控制费用，以后可以收费。缺点：要维护一个服务，需要域名和备案，有运营成本。<br>**B. 用户自己填 Key**：存在 Keychain 里，App 直接调用 `api.anthropic.com`。优点：零后端，开发最快。缺点：普通用户门槛高，审核可能质疑，费用由用户承担 | **先 B 后 A**：M3、M4 用 B 自用和内测，上架前（M6）补上 A，B 作为“高级选项”保留 |
 | 2 | **模型** | 所有场景都用 `claude-opus-5-5`（$4 / $20 每百万 token），用 effort 区分深浅；或者收集解析这种高频的轻量场景改用更便宜的模型 | 先全部用 `claude-opus-5-5`，M3 用评测集量化质量和单次成本后，你再决定要不要给收集解析换模型 |
 | 3 | **Share Extension** | 做（M5 之后，复用收集流程，约 1–2 天）/ 不做 | 先不做，`PasteButton` 和 Siri 已经覆盖大部分场景；TestFlight 反馈里有需求再加 |
 | 4 | **任务类别从哪来** | LLM 自动归类加用户修改 / 用户手动打标签 | LLM 自动归类加关键词规则兜底，用户可以改。手动打标签的话，几乎没有人会坚持 |
