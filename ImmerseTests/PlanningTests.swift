@@ -21,6 +21,55 @@ struct PlanningTests {
         #expect(store.captureIdea("   ") == nil)
     }
 
+    @Test func 拖动调整收集箱顺序() {
+        let a = store.captureIdea("A", now: date(19, 10))!
+        let b = store.captureIdea("B", now: date(19, 11))!
+        let c = store.captureIdea("C", now: date(19, 12))!
+        #expect(store.ideas().map(\.title) == ["C", "B", "A"])   // newest first by default
+
+        // Drag C down onto A: C takes A's place at the bottom
+        let order = TaskStore.reordered(store.ideas().map(\.id), moving: c.id, onto: a.id)!
+        store.reorder(order)
+        #expect(store.ideas().map(\.title) == ["B", "A", "C"])
+
+        // A fresh idea still lands on top of the hand-made order
+        store.captureIdea("D", now: date(19, 13))
+        #expect(store.ideas().map(\.title) == ["D", "B", "A", "C"])
+
+        // Drag A up onto B: A takes B's place
+        store.reorder(TaskStore.reordered(store.ideas().map(\.id), moving: a.id, onto: b.id)!)
+        #expect(store.ideas().map(\.title) == ["D", "A", "B", "C"])
+
+        store.undo()
+        #expect(store.ideas().map(\.title) == ["D", "B", "A", "C"])
+        #expect(TaskStore.reordered([a.id, b.id], moving: a.id, onto: a.id) == nil)
+        #expect(TaskStore.reordered([a.id], moving: b.id, onto: a.id) == nil)
+    }
+
+    @Test func 拖动调整目标顺序且新目标排在未完成末尾() {
+        // Default order is by end date: the week goal A before the month goal B
+        let a = store.createGoal("A", period: .week, calendar: calendar)!
+        let b = store.createGoal("B", period: .month, calendar: calendar)!
+        let goals = { GoalsSection.activeGoals(taskStore: store, calendar: calendar) }
+        let active = { goals().map(\.title) }
+        #expect(active() == ["A", "B"])
+        store.reorder(TaskStore.reordered(goals().map(\.id), moving: b.id, onto: a.id)!)
+        #expect(active() == ["B", "A"])
+
+        store.createGoal("C", period: .week, calendar: calendar)
+        #expect(active() == ["B", "A", "C"])
+
+        // Goals that are done still sink to the bottom
+        store.toggleDone(b.id)
+        #expect(active() == ["A", "C", "B"])
+    }
+
+    @Test func 列表超过六条折叠() {
+        #expect(collapsedRows(Array(1...8), isExpanded: false) == Array(1...6))
+        #expect(collapsedRows(Array(1...8), isExpanded: true) == Array(1...8))
+        #expect(collapsedRows(Array(1...3), isExpanded: false) == Array(1...3))
+    }
+
     @Test func 本周和本月的范围() {
         let week = GoalPeriod.week.range(containing: date(19, 15), calendar: calendar)
         #expect(week.start == date(16) && week.lastDay == date(22))

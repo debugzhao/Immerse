@@ -19,6 +19,8 @@ final class TaskItem {
     var kindRaw: String?
     var goalID: UUID?
     var targetMinutes: Int?
+    // Added with drag-to-reorder in the Inbox / Goals lists; optional so existing stores migrate automatically
+    var sortOrder: Double?
     var createdAt: Date
     var updatedAt: Date
 
@@ -40,6 +42,7 @@ final class TaskItem {
         kindRaw = snapshot.kind.rawValue
         goalID = snapshot.goalID
         targetMinutes = snapshot.targetMinutes
+        sortOrder = snapshot.sortOrder
         createdAt = now
         updatedAt = now
     }
@@ -58,7 +61,8 @@ final class TaskItem {
             plannedMinutes: plannedMinutes,
             kind: kindRaw.flatMap(TaskKind.init(rawValue:)) ?? .event,
             goalID: goalID,
-            targetMinutes: targetMinutes
+            targetMinutes: targetMinutes,
+            sortOrder: sortOrder
         )
     }
 
@@ -75,6 +79,7 @@ final class TaskItem {
         kindRaw = snapshot.kind.rawValue
         goalID = snapshot.goalID
         targetMinutes = snapshot.targetMinutes
+        sortOrder = snapshot.sortOrder
         updatedAt = now
     }
 }

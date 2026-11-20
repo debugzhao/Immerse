@@ -25,6 +25,7 @@ extension TaskStore {
         guard var task = task(id: id) else { return }
         let range = period.range(containing: now, calendar: calendar)
         task.kind = .goal
+        task.sortOrder = nil   // a position in the Inbox means nothing among goals
         task.start = range.start
         task.end = range.lastDay
         task.isAllDay = true
@@ -35,6 +36,7 @@ extension TaskStore {
     func moveToInbox(_ id: UUID, now: Date = .now) {
         guard var task = task(id: id) else { return }
         task.kind = .idea
+        task.sortOrder = nil   // lands at the top of the Inbox like a fresh idea
         task.start = now
         task.end = nil
         task.isAllDay = false

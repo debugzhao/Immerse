@@ -23,6 +23,8 @@ struct TaskSnapshot: Identifiable, Hashable, Sendable {
     var goalID: UUID?
     /// For goals: planned total focus time in minutes (nil = just count sessions)
     var targetMinutes: Int?
+    /// Manual position in the Inbox / Goals list after the user drags to reorder (nil = default order)
+    var sortOrder: Double?
 
     /// Fallback focus duration for all-day tasks or tasks with only a start time.
     static let defaultFocusMinutes = 60

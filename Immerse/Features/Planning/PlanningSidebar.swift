@@ -5,6 +5,7 @@ import SwiftUI
 /// Sidebar Inbox panel: ideas that aren't scheduled yet. Type to capture, drag a row onto the calendar to schedule it
 struct InboxSection: View {
     @Environment(TaskStore.self) private var taskStore
+    @State private var isExpanded = false
 
     var body: some View {
         let ideas = taskStore.ideas()
@@ -15,7 +16,11 @@ struct InboxSection: View {
                 if ideas.isEmpty {
                     SidebarEmptyHint(text: "想到什么先记下来，有空再拖进日历")
                 }
-                ForEach(ideas) { IdeaRow(idea: $0) }
+                ForEach(collapsedRows(ideas, isExpanded: isExpanded)) { idea in
+                    IdeaRow(idea: idea)
+                        .reorderDrop(id: idea.id, in: ideas.map(\.id))
+                }
+                ExpandToggleRow(total: ideas.count, isExpanded: $isExpanded)
             }
         }
     }
@@ -39,7 +44,7 @@ private struct IdeaRow: View {
         }
         .onTapGesture { store.openEditor(idea.id) }
         .draggable(idea.id.uuidString) { DragChip(title: idea.displayTitle, icon: "lightbulb") }
-        .help("拖到日历上排期，点击查看详情")
+        .help("拖到日历上排期，拖到其他想法上调整顺序，点击查看详情")
         .contextMenu {
             Button("打开") { store.openEditor(idea.id) }
             Button("安排到今天下一个整点") { scheduleNextHour() }
@@ -67,6 +72,7 @@ struct GoalsSection: View {
     @Environment(TaskStore.self) private var taskStore
     @Environment(CalendarStore.self) private var store
     @State private var period: GoalPeriod = .month
+    @State private var isExpanded = false
 
     var body: some View {
         let goals = Self.activeGoals(taskStore: taskStore, calendar: store.calendar)
@@ -91,19 +97,29 @@ struct GoalsSection: View {
                 if goals.isEmpty {
                     SidebarEmptyHint(text: "比如「这个月读完《纳瓦尔宝典》」，拖到日历上安排每次的时间")
                 }
-                ForEach(goals) { GoalRow(goal: $0) }
+                ForEach(collapsedRows(goals, isExpanded: isExpanded)) { goal in
+                    GoalRow(goal: goal)
+                        .reorderDrop(id: goal.id, in: goals.map(\.id))
+                }
+                ExpandToggleRow(total: goals.count, isExpanded: $isExpanded)
             }
         }
     }
 
-    /// Goals whose period isn't over, unfinished first, then by end date (shared with the tab picker's count)
+    /// Goals whose period isn't over, unfinished first; within each group the hand-made order,
+    /// then goals never reordered by end date (shared with the tab picker's count)
     @MainActor
     static func activeGoals(taskStore: TaskStore, calendar: Calendar) -> [TaskSnapshot] {
         taskStore.goals()
             .filter { $0.isActiveGoal(now: .now, calendar: calendar) }
             .sorted { a, b in
                 if (a.status == .done) != (b.status == .done) { return b.status == .done }
-                return a.displayInterval(in: calendar).end < b.displayInterval(in: calendar).end
+                switch (a.sortOrder, b.sortOrder) {
+                case let (x?, y?) where x != y: return x < y
+                case (_?, nil): return true
+                case (nil, _?): return false
+                default: return a.displayInterval(in: calendar).end < b.displayInterval(in: calendar).end
+                }
             }
     }
 }
@@ -138,7 +154,7 @@ private struct GoalRow: View {
         }
         .onTapGesture { store.openEditor(goal.id) }
         .draggable(goal.id.uuidString) { DragChip(title: goal.displayTitle, icon: "target") }
-        .help("\(progress.percent)% · \(progress.summary)\(isDone ? "" : " · 还剩 \(progress.daysLeft) 天")\n拖到日历上安排一次时间，专注时长会计入这个目标")
+        .help("\(progress.percent)% · \(progress.summary)\(isDone ? "" : " · 还剩 \(progress.daysLeft) 天")\n拖到日历上安排一次时间，专注时长会计入这个目标；拖到其他目标上调整顺序")
         .contextMenu {
             Button("打开") { store.openEditor(goal.id) }
             if !isDone && !focusEngine.isFocusing(on: goal.id) {
@@ -162,6 +178,43 @@ func goalProgress(_ goal: TaskSnapshot, taskStore: TaskStore, focusEngine: Focus
 }
 
 // MARK: - Building blocks
+
+/// Inbox / Goals lists show at most this many rows until expanded
+let planningCollapsedRowLimit = 6
+
+/// The rows to show: all of them when expanded, otherwise the first `planningCollapsedRowLimit`
+func collapsedRows<T>(_ rows: [T], isExpanded: Bool) -> [T] {
+    isExpanded ? rows : Array(rows.prefix(planningCollapsedRowLimit))
+}
+
+/// "Show N more" / "Show less" under a list that has more rows than the collapsed limit
+private struct ExpandToggleRow: View {
+    let total: Int
+    @Binding var isExpanded: Bool
+
+    var body: some View {
+        if total > planningCollapsedRowLimit {
+            Button {
+                withAnimation(Motion.snappy) { isExpanded.toggle() }
+            } label: {
+                HStack(spacing: 8) {
+                    Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
+                        .font(.system(size: 10, weight: .semibold))
+                        .frame(width: 14)
+                    Text(isExpanded ? "收起" : "展开其余 \(total - planningCollapsedRowLimit) 条")
+                        .font(.system(size: 12))
+                    Spacer(minLength: 0)
+                }
+                .foregroundStyle(.secondary)
+                .padding(.horizontal, 8)
+                .padding(.vertical, 5)
+                .sidebarRowBackground(isSelected: false)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+        }
+    }
+}
 
 /// Inline "type and press Return" row used by the Inbox and Goals panels.
 /// Looks like a list row rather than a boxed input; a soft background appears only while typing
@@ -258,6 +311,42 @@ struct ProgressRing: View {
         .frame(width: 12, height: 12)
         .frame(width: 14)
         .animation(Motion.snappy, value: fraction)
+    }
+}
+
+extension View {
+    /// Drop another row of the same list here to move it into this row's place.
+    /// Rows are already draggable (onto the calendar); the payload is the task's UUID string
+    func reorderDrop(id: UUID, in ids: [UUID]) -> some View {
+        modifier(ReorderDropModifier(id: id, ids: ids))
+    }
+}
+
+private struct ReorderDropModifier: ViewModifier {
+    let id: UUID
+    let ids: [UUID]
+
+    @Environment(TaskStore.self) private var taskStore
+    @State private var isTargeted = false
+
+    func body(content: Content) -> some View {
+        content
+            .overlay {
+                if isTargeted {
+                    RoundedRectangle(cornerRadius: 6, style: .continuous)
+                        .strokeBorder(Color.accentColor.opacity(0.7), lineWidth: 1.5)
+                        .allowsHitTesting(false)
+                }
+            }
+            .dropDestination(for: String.self) { items, _ in
+                // Only rows of this list reorder; anything else (e.g. an idea dropped on a goal) is refused
+                guard let moving = items.compactMap(UUID.init(uuidString:)).first,
+                      let order = TaskStore.reordered(ids, moving: moving, onto: id) else { return false }
+                withAnimation(Motion.snappy) { taskStore.reorder(order) }
+                return true
+            } isTargeted: { targeted in
+                withAnimation(.easeOut(duration: 0.12)) { isTargeted = targeted }
+            }
     }
 }
 

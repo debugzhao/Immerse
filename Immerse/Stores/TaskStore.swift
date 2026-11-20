@@ -60,10 +60,17 @@ final class TaskStore {
         return attempt("读取任务") { try repository.allTasks() } ?? []
     }
 
-    /// Inbox ideas, newest first
+    /// Inbox ideas: ones never reordered by hand come first (newest first), then the hand-ordered ones
     func ideas() -> [TaskSnapshot] {
         _ = revision
-        return (attempt("读取收集箱") { try repository.tasks(kind: .idea) } ?? []).reversed()
+        return (attempt("读取收集箱") { try repository.tasks(kind: .idea) } ?? []).sorted { a, b in
+            switch (a.sortOrder, b.sortOrder) {
+            case (nil, nil): a.start > b.start
+            case (nil, _): true
+            case (_, nil): false
+            case let (x?, y?): x < y
+            }
+        }
     }
 
     func goals() -> [TaskSnapshot] {
@@ -94,6 +101,29 @@ final class TaskStore {
                 applyUpsert(snapshot, previous: nil)
             }
         }
+    }
+
+    /// Saves a hand-made order for a list (Inbox / Goals): `ids[i]` gets position i. One undo step
+    func reorder(_ ids: [UUID], actionName: String = "调整顺序") {
+        breakCoalescing()
+        undoStep(actionName) {
+            for (index, id) in ids.enumerated() {
+                guard let previous = task(id: id), previous.sortOrder != Double(index) else { continue }
+                var snapshot = previous
+                snapshot.sortOrder = Double(index)
+                applyUpsert(snapshot, previous: previous)
+            }
+        }
+    }
+
+    /// `ids` after dragging `moving` onto the row `target`: it takes the target's place
+    /// (lands below the target when dragged down, above it when dragged up). nil when nothing would change.
+    static func reordered(_ ids: [UUID], moving: UUID, onto target: UUID) -> [UUID]? {
+        guard moving != target, let from = ids.firstIndex(of: moving), let to = ids.firstIndex(of: target) else { return nil }
+        var result = ids
+        result.remove(at: from)
+        result.insert(moving, at: to)
+        return result
     }
 
     /// - Parameter coalescingKey: consecutive edits with the same key within a short window merge into one undo step
