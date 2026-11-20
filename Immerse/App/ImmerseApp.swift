@@ -28,7 +28,8 @@ struct ImmerseApp: App {
         _environment = State(initialValue: AppEnvironment(
             repository: repository,
             focusRepository: focusRepository,
-            isEphemeral: PersistenceController.isEphemeral
+            isEphemeral: PersistenceController.isEphemeral,
+            syncRepository: repository
         ))
     }
 

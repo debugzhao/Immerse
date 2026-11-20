@@ -25,12 +25,22 @@ public struct TaskSnapshot: Identifiable, Hashable, Sendable {
     public var targetMinutes: Int?
     /// Manual position in the Inbox / Goals list after the user drags to reorder (nil = default order)
     public var sortOrder: Double?
+    /// Hard due date, separate from `end` (when the calendar block ends). Drives deadline back-planning and risk alerts
+    public var deadline: Date?
+    public var category: TaskCategory?
+    public var effort: TaskEffort?
+    /// For sub-tasks produced by splitting a large task
+    public var parentID: UUID?
+    public var source: TaskSource?
+    /// The secretary proposal that wrote this task, so a whole proposal can be traced and undone
+    public var proposalID: UUID?
 
     // Spelled out because the synthesized memberwise initializer is internal to the package
     public init(id: UUID = UUID(), title: String, start: Date, end: Date? = nil, isAllDay: Bool,
                 priority: Priority = .normal, status: TaskStatus = .todo, notes: String = "", place: String? = nil,
                 plannedMinutes: Int? = nil, kind: TaskKind = .event, goalID: UUID? = nil, targetMinutes: Int? = nil,
-                sortOrder: Double? = nil) {
+                sortOrder: Double? = nil, deadline: Date? = nil, category: TaskCategory? = nil,
+                effort: TaskEffort? = nil, parentID: UUID? = nil, source: TaskSource? = nil, proposalID: UUID? = nil) {
         self.id = id
         self.title = title
         self.start = start
@@ -45,6 +55,12 @@ public struct TaskSnapshot: Identifiable, Hashable, Sendable {
         self.goalID = goalID
         self.targetMinutes = targetMinutes
         self.sortOrder = sortOrder
+        self.deadline = deadline
+        self.category = category
+        self.effort = effort
+        self.parentID = parentID
+        self.source = source
+        self.proposalID = proposalID
     }
 
     /// Fallback focus duration for all-day tasks or tasks with only a start time.

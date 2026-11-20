@@ -32,6 +32,11 @@ public final class TaskStore {
     public private(set) var revision = 0
     public var toast: Toast?
 
+    /// The store changed underneath us (CloudKit sync, a widget or App Intent writing the shared store): re-read everything
+    public func reloadFromStore() {
+        revision += 1
+    }
+
     public init(repository: TaskRepository, undoManager: UndoManager = UndoManager()) {
         self.repository = repository
         self.undoManager = undoManager

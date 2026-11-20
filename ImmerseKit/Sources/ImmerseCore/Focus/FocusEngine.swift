@@ -202,6 +202,11 @@ public final class FocusEngine {
         finish(.finishedEarly)
     }
 
+    /// Focus records changed outside this engine (CloudKit sync): views that read `records(in:)` refresh
+    public func reloadRecords() {
+        recordsRevision += 1
+    }
+
     /// Abandon: the task status reverts to not started
     public func abandon() {
         finish(.abandoned)

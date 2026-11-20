@@ -17,10 +17,12 @@ final class AppEnvironment {
     /// nil for tests / screenshots, so sample events never start a session on their own
     private let autoFocus: AutoFocusScheduler?
     private var powerMonitor: PowerMonitor?
+    /// Dedupes and refreshes after CloudKit sync; nil for tests / screenshots
+    private var syncMonitor: SyncMonitor?
 
     /// - Parameter isEphemeral: tests / screenshots: no system notifications, no toggling of the real Do Not Disturb
     init(repository: TaskRepository, focusRepository: FocusSessionRepository,
-         isEphemeral: Bool = false, calendar: Calendar = .app) {
+         isEphemeral: Bool = false, calendar: Calendar = .app, syncRepository: SwiftDataTaskRepository? = nil) {
         taskStore = TaskStore(repository: repository)
         calendarStore = CalendarStore(calendar: calendar)
         settings = SettingsStore(defaults: isEphemeral ? UserDefaults(suiteName: "immerse.ephemeral") ?? .standard : .standard)
@@ -65,6 +67,13 @@ final class AppEnvironment {
             dailyReview.reschedule()
             // Catch up an event that began while the Mac was asleep
             autoFocus?.evaluate()
+        }
+        if let syncRepository, !isEphemeral {
+            syncMonitor = SyncMonitor(repository: syncRepository) { [taskStore, focusEngine] in
+                taskStore.reloadFromStore()
+                focusEngine.reloadRecords()
+            }
+            syncMonitor?.start()
         }
         // Restore first: an event whose session survived a relaunch must not be started a second time
         focusEngine.restore()

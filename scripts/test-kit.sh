@@ -14,7 +14,9 @@ fi
 DEV_DIR="${DEVELOPER_DIR:-$(xcode-select -p)}"
 
 echo "▶ ImmerseKit tests (macOS)"
-swift test --package-path ImmerseKit
+# Through xcodebuild, not `swift test`: SwiftData traps with "Unable to determine Bundle Name" under the SwiftPM test runner
+(cd ImmerseKit && xcodebuild -scheme ImmerseKit -destination 'platform=macOS' \
+  -derivedDataPath ../build/ImmerseKit-mac -quiet test)
 
 echo "▶ ImmerseKit build for iOS 17 simulator"
 SDK=$(xcrun --sdk iphonesimulator --show-sdk-path)
