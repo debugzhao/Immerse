@@ -20,6 +20,7 @@ enum CalendarMetrics {
     static var gridHeight: CGFloat { hourHeight * 24 }
 
     static func scrollAnchorID(_ hour: Int) -> String { "hour-anchor-\(hour)" }
+    static let nowAnchorID = "now-anchor"
 
     /// y coordinate of a date on that day's time grid
     static func yOffset(for date: Date, dayStart: Date) -> CGFloat {

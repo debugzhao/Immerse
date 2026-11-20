@@ -31,7 +31,7 @@ struct TimeGridCalendarView: View {
             ScrollViewReader { proxy in
                 ScrollView(.vertical) {
                     HStack(alignment: .top, spacing: 0) {
-                        TimeGutterView(showsNow: days.contains(where: calendarStore.isToday))
+                        TimeGutterView(showsNow: showsToday)
                             .frame(width: CalendarMetrics.gutterWidth)
                         ForEach(days, id: \.self) { day in
                             DayColumnView(day: day, tasks: timed)
@@ -42,6 +42,8 @@ struct TimeGridCalendarView: View {
                         HourGridLines()
                             .padding(.leading, CalendarMetrics.gutterWidth)
                     }
+                    // Window resized or moved to another screen: keep the same moment in the middle, without a jump
+                    .background(ScrollCenterKeeper(isActive: tracksScroll, initialCenterY: initialCenterY))
                     // Spacer so the time label (offset up by half a line height) isn't clipped when scrolled to the top
                     .padding(.vertical, 10)
                     // Remember which hour is at the top, so a recreated grid (day ↔ week switch) can scroll back to it
@@ -71,7 +73,11 @@ struct TimeGridCalendarView: View {
                 }
                 .onChange(of: calendarStore.scrollRequest) { _, request in
                     withAnimation(Motion.gentle) {
-                        proxy.scrollTo(CalendarMetrics.scrollAnchorID(request.hour), anchor: .top)
+                        if request.centersNow && showsToday {
+                            proxy.scrollTo(CalendarMetrics.nowAnchorID, anchor: .center)
+                        } else {
+                            proxy.scrollTo(CalendarMetrics.scrollAnchorID(request.hour), anchor: .top)
+                        }
                     }
                 }
             }
@@ -79,7 +85,13 @@ struct TimeGridCalendarView: View {
         }
         .background(Color(nsColor: .textBackgroundColor))
         .onAppear {
-            if initialHour == nil { initialHour = calendarStore.lastScrollHour ?? calendarStore.scrollRequest.hour }
+            // Opening on today with no remembered position: leave initialHour nil so the anchor centers the current time
+            guard initialHour == nil else { return }
+            if let hour = calendarStore.lastScrollHour {
+                initialHour = hour
+            } else if !(calendarStore.scrollRequest.centersNow && showsToday) {
+                initialHour = calendarStore.scrollRequest.hour
+            }
         }
     }
 
@@ -87,12 +99,30 @@ struct TimeGridCalendarView: View {
     /// defaultScrollAnchor aligns the anchor point of the content with the same point of the viewport, so for a
     /// target offset `o`: y = o / (contentHeight − viewportHeight)
     private func initialAnchor(viewportHeight: CGFloat) -> UnitPoint {
-        let hour = initialHour ?? calendarStore.lastScrollHour ?? calendarStore.scrollRequest.hour
         let contentHeight = CalendarMetrics.gridHeight + 20          // grid + vertical padding
-        // Same position the scroll anchors use: 12 pt above the hour line, below the 10 pt top padding
-        let offset = max(10 + CGFloat(hour) * CalendarMetrics.hourHeight - 12, 0)
+        let offset: CGFloat
+        if initialHour == nil && calendarStore.lastScrollHour == nil && calendarStore.scrollRequest.centersNow && showsToday {
+            // Current time in the middle of the viewport
+            let now = Date.now
+            let y = CalendarMetrics.yOffset(for: now, dayStart: calendar.startOfDay(for: now))
+            offset = max(10 + y - viewportHeight / 2, 0)
+        } else {
+            let hour = initialHour ?? calendarStore.lastScrollHour ?? calendarStore.scrollRequest.hour
+            // Same position the scroll anchors use: 12 pt above the hour line, below the 10 pt top padding
+            offset = max(10 + CGFloat(hour) * CalendarMetrics.hourHeight - 12, 0)
+        }
         let scrollable = max(contentHeight - viewportHeight, 1)
         return UnitPoint(x: 0, y: min(offset / scrollable, 1))
+    }
+
+    private var showsToday: Bool { days.contains(where: calendarStore.isToday) }
+
+    /// Opening on today with no remembered position: the current time's y in the scroll content, to hold mid-viewport
+    private var initialCenterY: CGFloat? {
+        guard initialHour == nil, calendarStore.lastScrollHour == nil,
+              calendarStore.scrollRequest.centersNow, showsToday else { return nil }
+        let now = Date.now
+        return 10 + CalendarMetrics.yOffset(for: now, dayStart: calendar.startOfDay(for: now))
     }
 
     private var visibleInterval: DateInterval {
@@ -184,6 +214,15 @@ private struct TimeGutterView: View {
                 }
             }
             if showsNow {
+                // Scroll target for "center the current time" (layout position, since scrollTo ignores offset)
+                TimelineView(.everyMinute) { context in
+                    let dayStart = store.calendar.startOfDay(for: context.date)
+                    VStack(spacing: 0) {
+                        Spacer().frame(height: CalendarMetrics.yOffset(for: context.date, dayStart: dayStart))
+                        Color.clear.frame(width: 1, height: 1).id(CalendarMetrics.nowAnchorID)
+                        Spacer(minLength: 0)
+                    }
+                }
                 TimelineView(.everyMinute) { context in
                     let dayStart = store.calendar.startOfDay(for: context.date)
                     Text(TimeText.hhmm(context.date, calendar: store.calendar))

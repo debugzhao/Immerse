@@ -27,6 +27,8 @@ enum CalendarMode: String, CaseIterable, Identifiable, Sendable {
 
 struct ScrollRequest: Equatable {
     var hour: Int
+    /// Put the current time in the middle of the viewport instead of `hour` at the top (when today is on screen)
+    var centersNow = false
     var token = UUID()
 }
 
@@ -78,7 +80,7 @@ final class CalendarStore {
     /// "今日规划" sheet: once a day automatically, or from the View menu
     var isDailyPlanPresented = false
     /// Time grid scroll request: each newly assigned value triggers one scroll
-    var scrollRequest = ScrollRequest(hour: 8) {
+    var scrollRequest = ScrollRequest(hour: 8, centersNow: true) {
         // An explicit scroll request (reveal, ⌘N) wins over the remembered position
         didSet { lastScrollHour = nil }
     }
@@ -155,6 +157,7 @@ final class CalendarStore {
 
     func goToToday() {
         anchorDate = .now
+        scrollRequest = ScrollRequest(hour: calendar.component(.hour, from: .now), centersNow: true)
     }
 
     /// direction: -1 for the previous page, +1 for the next
