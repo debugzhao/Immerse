@@ -12,7 +12,7 @@ enum SampleData {
               let all = try? tasks.tasks(in: week) else { return }
         for task in all where !task.isAllDay && task.start < now && task.status != .inProgress {
             let interval = task.displayInterval(in: calendar)
-            // Actual focus starts 5 minutes later than planned and runs 10 minutes shorter, to demo the "actual vs planned" difference
+            // Actual focus starts 5 minutes later than planned and runs 10 minutes shorter, so the stats look realistic
             let start = interval.start.addingTimeInterval(5 * 60)
             let seconds = max(Int(interval.duration) - 15 * 60, 15 * 60)
             let state = FocusSessionState(taskID: task.id, taskTitle: task.title, startedAt: start, plannedSeconds: seconds)

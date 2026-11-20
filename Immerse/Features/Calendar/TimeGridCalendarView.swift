@@ -6,7 +6,6 @@ struct TimeGridCalendarView: View {
 
     @Environment(TaskStore.self) private var taskStore
     @Environment(CalendarStore.self) private var calendarStore
-    @Environment(FocusEngine.self) private var focusEngine
     /// Hour shown at the top on the very first frame. Fixed when the grid is created, so the grid opens already in place
     /// instead of rendering at 00:00 and jumping (programmatic scrolling after appear caused a visible jump on every switch)
     @State private var initialHour: Int?
@@ -22,8 +21,6 @@ struct TimeGridCalendarView: View {
         let tasks = taskStore.tasks(in: visibleInterval)
         let allDay = tasks.filter(\.isAllDay)
         let timed = tasks.filter { !$0.isAllDay }
-        // One query for the whole visible range; each column filters its own day (was one query per column)
-        let records = FocusRecord.onCalendar(focusEngine.records(in: visibleInterval)) { taskStore.task(id: $0) != nil }
 
         VStack(spacing: 0) {
             DayHeaderRow(days: days)
@@ -36,7 +33,7 @@ struct TimeGridCalendarView: View {
                         TimeGutterView(showsNow: days.contains(where: calendarStore.isToday))
                             .frame(width: CalendarMetrics.gutterWidth)
                         ForEach(days, id: \.self) { day in
-                            DayColumnView(day: day, tasks: timed, records: records)
+                            DayColumnView(day: day, tasks: timed)
                         }
                     }
                     .frame(height: CalendarMetrics.gridHeight)

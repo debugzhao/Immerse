@@ -69,20 +69,4 @@ struct FocusStatsTests {
         #expect(stats.topTasks.isEmpty)
         #expect(stats.streakDays == 0)
     }
-
-    @Test func 已删除日程的专注记录不画在日历上() {
-        let kept = UUID(), deleted = UUID()
-        func linked(_ id: UUID?) -> FocusRecord {
-            let start = calendar.date(from: DateComponents(year: 2026, month: 11, day: 18, hour: 9))!
-            return FocusRecord(id: UUID(), taskID: id, taskTitle: "阅读", startedAt: start,
-                               endedAt: start.addingTimeInterval(1800), focusedSeconds: 1800, reason: .completed)
-        }
-        let records = [linked(kept), linked(deleted), linked(nil)]   // nil: the event was deleted and the link nullified
-
-        let visible = FocusRecord.onCalendar(records) { $0 == kept }
-
-        #expect(visible.map(\.taskID) == [kept])
-        // Stats still count every record: the time was really spent
-        #expect(FocusStats(records: records, now: now, calendar: calendar).todayMinutes == 90)
-    }
 }

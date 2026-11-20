@@ -5,8 +5,6 @@ import SwiftUI
 struct DayColumnView: View {
     let day: Date
     let tasks: [TaskSnapshot]
-    /// Focus records for the whole visible range (queried once by the grid)
-    var records: [FocusRecord] = []
 
     @Environment(CalendarStore.self) private var store
     @Environment(TaskStore.self) private var taskStore
@@ -44,8 +42,6 @@ struct DayColumnView: View {
             let width = geometry.size.width
             ZStack(alignment: .topLeading) {
                 background(width: width)
-
-                FocusStrips(dayStart: dayStart, records: records)
 
                 ForEach(segments) { segment in
                     if let placement = placements[segment.id] {
@@ -208,31 +204,6 @@ struct DayColumnView: View {
             guard interval.overlapsHalfOpen(dayInterval) else { return nil }
             return Segment(task: task, start: max(interval.start, dayStart), end: min(interval.end, dayEnd))
         }
-    }
-}
-
-/// Time actually spent focusing: a thin bar on the column's left edge, to compare against the planned event block (actual vs. planned)
-private struct FocusStrips: View {
-    let dayStart: Date
-    let records: [FocusRecord]
-
-    var body: some View {
-        let dayEnd = dayStart.addingTimeInterval(24 * 3600)
-        let records = self.records.filter { $0.endedAt > dayStart && $0.startedAt < dayEnd }
-        ZStack(alignment: .topLeading) {
-            ForEach(records) { record in
-                let start = max(record.startedAt, dayStart)
-                let end = min(record.endedAt, dayEnd)
-                let top = CalendarMetrics.yOffset(for: start, dayStart: dayStart)
-                let height = max(CalendarMetrics.yOffset(for: end, dayStart: dayStart) - top, 3)
-                Capsule()
-                    .fill(Color.green.opacity(record.reason == .abandoned ? 0.35 : 0.8))
-                    .frame(width: 3, height: height)
-                    .offset(x: -1.5, y: top)
-                    .help("实际专注「\(record.taskTitle)」\(TimeText.range(record.startedAt, record.endedAt)) · \(DurationText.minutes(record.focusedSeconds)) · \(record.reason.title)")
-            }
-        }
-        .zIndex(2)
     }
 }
 
