@@ -76,7 +76,7 @@ struct EventBlockView: View {
                 VStack(alignment: .leading, spacing: 1) {
                     // Sessions booked for a goal carry a small target mark
                     (task.goalID != nil ? Text(Image(systemName: "target")) + Text(" ") + Text(task.displayTitle) : Text(task.displayTitle))
-                        .font(.system(size: isCompact ? 10 : isNarrow ? 11 : 12, weight: .semibold))
+                        .font(.system(size: isCompact || isNarrow ? 11 : 12, weight: .semibold))
                         .strikethrough(isDone)
                         .lineLimit(min(titleLines, showsSubtitle ? 2 : 6))
                     if showsSubtitle {

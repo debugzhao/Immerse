@@ -4,7 +4,8 @@ import SwiftUI
 
 /// Size constants for calendar views
 enum CalendarMetrics {
-    static let hourHeight: CGFloat = 48
+    /// Tall enough that a 15-minute event (16 pt) fits one line of text and is easy to click
+    static let hourHeight: CGFloat = 64
     static let gutterWidth: CGFloat = 56
     static let dayHeaderHeight: CGFloat = 44
     static let allDayLaneHeight: CGFloat = 22
@@ -13,7 +14,7 @@ enum CalendarMetrics {
     static let initialScrollHour = 8
     /// Minimum height of an event block (15 minutes), and the shortest duration it maps to for overlap checks.
     /// Kept at exactly one snap step so every 15-minute event is drawn the same height and back-to-back ones stack
-    static let minimumEventHeight: CGFloat = 12
+    static var minimumEventHeight: CGFloat { hourHeight / 4 }
     static var minimumEventDuration: TimeInterval { TimeInterval(minimumEventHeight / hourHeight * 3600) }
 
     static var gridHeight: CGFloat { hourHeight * 24 }
