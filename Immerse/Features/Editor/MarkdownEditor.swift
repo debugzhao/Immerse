@@ -9,8 +9,10 @@ import SwiftUI
 /// - Pasting a URL inserts a page mention `[@Title](url)`, titled from the page
 struct MarkdownEditor: NSViewRepresentable {
     @Binding var text: String
+    /// Hint drawn while the editor is empty (including while an input method is composing)
+    var placeholder: String?
 
-    /// Distance of the text from the top; the placeholder must align with it
+    /// Distance of the text from the top
     static let topInset: CGFloat = 4
 
     func makeCoordinator() -> Coordinator {
@@ -18,7 +20,9 @@ struct MarkdownEditor: NSViewRepresentable {
     }
 
     func makeNSView(context: Context) -> NSScrollView {
-        Self.makeScrollView(text: text, delegate: context.coordinator)
+        let scrollView = Self.makeScrollView(text: text, delegate: context.coordinator)
+        (scrollView.documentView as? MarkdownTextView)?.placeholder = placeholder
+        return scrollView
     }
 
     /// Builds the scrollable text view stack (also used by tests, so they exercise the real configuration)
@@ -62,8 +66,9 @@ struct MarkdownEditor: NSViewRepresentable {
 
     func updateNSView(_ scrollView: NSScrollView, context: Context) {
         context.coordinator.text = $text
-        guard let textView = scrollView.documentView as? MarkdownTextView,
-              textView.string != text,
+        guard let textView = scrollView.documentView as? MarkdownTextView else { return }
+        if textView.placeholder != placeholder { textView.placeholder = placeholder }
+        guard textView.string != text,
               !textView.hasMarkedText() else { return }
         // External change (undo, switching events): replace the text, preserving the cursor position where possible
         let selection = textView.selectedRange()
@@ -123,6 +128,17 @@ final class MarkdownTextView: NSTextView {
     private var slashAnchor: Int?
     private lazy var slashMenu = SlashMenuPanel()
 
+    /// Drawn by the view itself rather than overlaid in SwiftUI: the binding stays empty while an input
+    /// method composes (marked text isn't committed), but the view already shows those letters
+    var placeholder: String? {
+        didSet { needsDisplay = true }
+    }
+    private var drewPlaceholder = false
+
+    var isShowingPlaceholder: Bool {
+        placeholder != nil && (textStorage?.length ?? 0) == 0
+    }
+
     /// Characters typed next to a concealed marker would otherwise inherit its hidden attributes
     override var typingAttributes: [NSAttributedString.Key: Any] {
         get { super.typingAttributes }
@@ -176,6 +192,48 @@ final class MarkdownTextView: NSTextView {
     }
 
     private var isStyleCurrent: Bool { styledText == string }
+
+    // MARK: - Placeholder
+
+    override func draw(_ dirtyRect: NSRect) {
+        super.draw(dirtyRect)
+        drewPlaceholder = isShowingPlaceholder
+        guard drewPlaceholder, let placeholder else { return }
+        let padding = textContainer?.lineFragmentPadding ?? 0
+        let origin = textContainerOrigin
+        let rect = NSRect(x: origin.x + padding, y: origin.y,
+                          width: max(bounds.width - origin.x * 2 - padding * 2, 0), height: bounds.height - origin.y)
+        let attributes: [NSAttributedString.Key: Any] = [
+            .font: NSFont.systemFont(ofSize: MarkdownStyler.fontSize),
+            .foregroundColor: NSColor.tertiaryLabelColor,
+        ]
+        (placeholder as NSString).draw(with: rect, options: [.usesLineFragmentOrigin], attributes: attributes)
+    }
+
+    /// Text edits only redraw the changed lines; repaint fully when the placeholder appears or goes away
+    private func refreshPlaceholder() {
+        if isShowingPlaceholder != drewPlaceholder { needsDisplay = true }
+    }
+
+    override func didChangeText() {
+        super.didChangeText()
+        refreshPlaceholder()
+    }
+
+    /// Programmatic replacements (switching events, external undo) skip `didChangeText`
+    override var string: String {
+        didSet { refreshPlaceholder() }
+    }
+
+    override func setMarkedText(_ string: Any, selectedRange: NSRange, replacementRange: NSRange) {
+        super.setMarkedText(string, selectedRange: selectedRange, replacementRange: replacementRange)
+        refreshPlaceholder()
+    }
+
+    override func unmarkText() {
+        super.unmarkText()
+        refreshPlaceholder()
+    }
 
     /// Bullets and checkboxes are drawn over their characters, so the caret steps over them as one unit
     func snappedSelection(from oldRange: NSRange, to newRange: NSRange) -> NSRange {

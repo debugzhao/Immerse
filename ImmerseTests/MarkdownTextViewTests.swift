@@ -277,4 +277,24 @@ struct MarkdownTextViewTests {
         // Arrowing left from the item text goes to the previous line
         #expect(view.snappedSelection(from: NSRange(location: 4, length: 0), to: NSRange(location: 3, length: 0)) == NSRange(location: 1, length: 0))
     }
+
+    @Test func 输入法组字时隐藏占位提示() {
+        let (view, window) = makeEditor("")
+        view.placeholder = "添加备注…"
+        #expect(window.makeFirstResponder(view))
+        #expect(view.isShowingPlaceholder)
+
+        // Pinyin still being composed: nothing is committed yet, but the letters are on screen
+        view.setMarkedText("gao", selectedRange: NSRange(location: 3, length: 0),
+                           replacementRange: NSRange(location: NSNotFound, length: 0))
+        #expect(view.hasMarkedText())
+        #expect(!view.isShowingPlaceholder)
+
+        view.insertText("高", replacementRange: NSRange(location: NSNotFound, length: 0))
+        #expect(view.string == "高")
+        #expect(!view.isShowingPlaceholder)
+
+        view.string = ""
+        #expect(view.isShowingPlaceholder)
+    }
 }

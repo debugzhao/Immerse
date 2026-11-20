@@ -765,16 +765,7 @@ private struct NotesEditor: View {
     @Binding var text: String
 
     var body: some View {
-        MarkdownEditor(text: $text)
-            .overlay(alignment: .topLeading) {
-                if text.isEmpty {
-                    Text("添加备注…  输入 / 插入标题、待办、列表等，粘贴链接自动识别")
-                        .font(.system(size: 14))
-                        .foregroundStyle(.tertiary)
-                        .padding(.top, MarkdownEditor.topInset)
-                        .allowsHitTesting(false)
-                }
-            }
+        MarkdownEditor(text: $text, placeholder: "添加备注…  输入 / 插入标题、待办、列表等，粘贴链接自动识别")
             .frame(maxHeight: .infinity)
     }
 }
