@@ -1,3 +1,4 @@
+import ImmerseAgent
 import ImmerseCore
 import SwiftUI
 
@@ -9,6 +10,7 @@ struct TaskEditorSheet: View {
     @Environment(TaskStore.self) private var taskStore
     @Environment(FocusEngine.self) private var focusEngine
     @Environment(ScheduleState.self) private var schedule
+    @Environment(Secretary.self) private var secretary
     @Environment(\.dismiss) private var dismiss
 
     @State private var draft: TaskSnapshot
@@ -93,11 +95,21 @@ struct TaskEditorSheet: View {
                         if !focusEngine.isFocusing(on: draft.id) && draft.status != .done {
                             Button {
                                 save()
-                                focusEngine.requestStart(draft)
-                                schedule.selectedTab = .focus
                                 dismiss()
+                                startFocusWithBriefing(draft, secretary: secretary, schedule: schedule, focusEngine: focusEngine)
                             } label: {
                                 Label("开始专注 \(DurationText.minutes(draft.focusMinutes * 60))", systemImage: "play.fill")
+                            }
+                        }
+                        if secretary.ai.isAvailable && draft.status != .done {
+                            Button {
+                                Task {
+                                    let proposal = await secretary.splitProposal(draft)
+                                    dismiss()
+                                    if let proposal { schedule.showProposal(proposal, secretary: secretary) }
+                                }
+                            } label: {
+                                Label("拆成小步骤", systemImage: "list.bullet.indent")
                             }
                         }
                         Button("删除日程", role: .destructive) { confirmsDelete = true }

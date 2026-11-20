@@ -1,4 +1,5 @@
 import Foundation
+import ImmerseAgent
 import ImmerseCore
 import Testing
 @testable import Immerse

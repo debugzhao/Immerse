@@ -1,3 +1,4 @@
+import ImmerseAgent
 import ImmerseCore
 import SwiftUI
 
@@ -6,6 +7,8 @@ struct PlanningView: View {
     @Environment(TaskStore.self) private var taskStore
     @Environment(FocusEngine.self) private var focusEngine
     @Environment(ScheduleState.self) private var schedule
+    @Environment(Secretary.self) private var secretary
+    @Environment(EventKitCalendarSource.self) private var systemCalendar
 
     @State private var newIdea = ""
     @State private var newGoal = ""
@@ -21,6 +24,19 @@ struct PlanningView: View {
             }
             .listStyle(.insetGrouped)
             .navigationTitle("规划")
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button {
+                        Task { await planWeek() }
+                    } label: {
+                        Label("排进本周", systemImage: "sparkles")
+                    }
+                    .disabled(taskStore.ideas().isEmpty || secretary.isWorking)
+                }
+            }
+            .overlay {
+                if secretary.isWorking { ProgressView("秘书正在安排…").padding().glassCard() }
+            }
         }
     }
 
@@ -54,7 +70,17 @@ struct PlanningView: View {
         } header: {
             Text("收集箱")
         } footer: {
-            Text("向右滑动「安排」会放进今天或明天最早的空档")
+            Text("向右滑动「安排」放进今天或明天最早的空档；右上角「排进本周」让秘书一次排好")
+        }
+    }
+
+    private func planWeek() async {
+        if systemCalendar.isUndetermined { await systemCalendar.requestAccess() }
+        if let proposal = await secretary.planInbox() {
+            schedule.showProposal(proposal, secretary: secretary)
+        } else if let notice = secretary.notice {
+            taskStore.toast = Toast(message: notice)
+            secretary.notice = nil
         }
     }
 

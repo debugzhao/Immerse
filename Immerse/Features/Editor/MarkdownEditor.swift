@@ -1,4 +1,5 @@
 import AppKit
+import ImmerseAgent
 import ImmerseCore
 import SwiftUI
 

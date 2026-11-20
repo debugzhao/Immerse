@@ -43,6 +43,11 @@ public final class FocusEngine {
     @ObservationIgnored public var onStarted: ((FocusSessionState) -> Void)?
     /// Called right after the time-up notification so the platform can grab attention (bounce the Dock icon on macOS)
     @ObservationIgnored public var onTimeUpAttention: (() -> Void)?
+    /// A session ended (completed, finished early or abandoned); the secretary uses it to offer a reflow
+    @ObservationIgnored public var onSessionEnded: ((FocusSessionState, FocusEndReason) -> Void)?
+    /// A session was extended; the argument is how many times this session has been extended so far
+    @ObservationIgnored public var onExtended: ((FocusSessionState, Int) -> Void)?
+    @ObservationIgnored private var extensionCount = 0
     @ObservationIgnored private let logger = Logger(subsystem: "com.debugzhao.immerse", category: "Focus")
     @ObservationIgnored private var ticker: Task<Void, Never>?
     @ObservationIgnored private var activity: NSObjectProtocol?
@@ -126,6 +131,7 @@ public final class FocusEngine {
         now = startedAt
         timeUpAt = nil
         notifiedMilestones = []
+        extensionCount = 0
         // A goal spans many sessions: one focus run doesn't change its status
         if task.kind != .goal { taskStore.setStatusWithoutUndo(.inProgress, for: task.id) }
 
@@ -188,6 +194,8 @@ public final class FocusEngine {
         session = state
         persist(state)
         if phase == .running { rescheduleBackup() }
+        extensionCount += 1
+        onExtended?(state, extensionCount)
     }
 
     // MARK: - End
@@ -235,6 +243,8 @@ public final class FocusEngine {
         notifier.cancelProgress()
         // Do Not Disturb was already turned off when time ran out
         if !wasTimeUp { setDoNotDisturb(false) }
+        extensionCount = 0
+        onSessionEnded?(state, reason)
     }
 
     // MARK: - Timer

@@ -1,3 +1,4 @@
+import ImmerseAgent
 import ImmerseCore
 import SwiftUI
 
@@ -92,9 +93,14 @@ struct DayColumn: View {
 
     @Environment(ScheduleState.self) private var schedule
     @Environment(TaskStore.self) private var taskStore
+    @Environment(Secretary.self) private var secretary
+    @Environment(EventKitCalendarSource.self) private var systemCalendar
 
     private var calendar: Calendar { schedule.calendar }
     private var dayStart: Date { calendar.startOfDay(for: day) }
+    private var dayInterval: DateInterval {
+        DateInterval(start: dayStart, end: calendar.date(byAdding: .day, value: 1, to: dayStart) ?? dayStart)
+    }
 
     private struct Segment: Identifiable {
         let task: TaskSnapshot
@@ -111,6 +117,9 @@ struct DayColumn: View {
 
         ZStack(alignment: .topLeading) {
             gridBackground
+            ForEach(systemCalendar.events(in: dayInterval).filter { !$0.isAllDay }) { event in
+                externalBlock(event)
+            }
             ForEach(segments) { segment in
                 if let placement = placements[segment.id] {
                     block(segment, placement: placement, displayEnd: displayEnds[segment.id] ?? segment.end)
@@ -118,6 +127,9 @@ struct DayColumn: View {
             }
             if let drag, isPreviewDay(for: drag) {
                 preview(for: drag)
+            }
+            ForEach(ghosts, id: \.item.id) { ghost in
+                ghostBlock(ghost.task, item: ghost.item)
             }
             if schedule.isToday(day) {
                 NowLine(dayStart: dayStart)
@@ -169,7 +181,7 @@ struct DayColumn: View {
             }
             .onTapGesture { schedule.editor = .existing(segment.task.id) }
             .gesture(dragGesture(segment.task, mode: .move))
-            .opacity(isDragging ? 0.3 : 1)
+            .opacity(isDragging || movingIDs.contains(segment.task.id) ? 0.3 : 1)
             .padding(.leading, slotWidth * CGFloat(placement.column) + 1)
             .padding(.top, top + 1)
             .accessibilityElement(children: .combine)
@@ -239,6 +251,53 @@ struct DayColumn: View {
                     .offset(y: -22)
             }
             .padding(.leading, dayShift * columnWidth + 1)
+            .padding(.top, top + 1)
+            .allowsHitTesting(false)
+    }
+
+    // MARK: - Secretary overlays
+
+    /// Proposed events that land on this day
+    private var ghosts: [(item: PlanProposal.Item, task: TaskSnapshot)] {
+        guard let proposal = secretary.activeProposal else { return [] }
+        return proposal.previewTasks { taskStore.task(id: $0) }.filter { preview in
+            preview.task.kind == .event && !preview.task.isAllDay
+                && preview.task.displayInterval(in: calendar).overlapsHalfOpen(dayInterval)
+        }
+    }
+
+    /// Existing events the proposal moves: drawn faded at their current place
+    private var movingIDs: Set<UUID> {
+        guard let proposal = secretary.activeProposal else { return [] }
+        return Set(proposal.selectedItems.compactMap { item -> UUID? in
+            switch item.operation {
+            case .move(let id, _, _), .toInbox(let id): id
+            case .update(let task): task.id
+            case .create: nil
+            }
+        })
+    }
+
+    private func ghostBlock(_ task: TaskSnapshot, item: PlanProposal.Item) -> some View {
+        let interval = task.displayInterval(in: calendar)
+        let start = max(interval.start, dayStart)
+        let end = max(min(interval.end, dayInterval.end), start.addingTimeInterval(GridMetrics.minimumEventDuration))
+        let top = GridMetrics.y(for: start, dayStart: dayStart)
+        let height = max(GridMetrics.y(for: end, dayStart: dayStart) - top - 2, 8)
+        return GhostBlock(task: task, reason: item.reason, height: height, isSelected: item.isSelected)
+            .frame(width: columnWidth - 4, height: height)
+            .padding(.leading, 2)
+            .padding(.top, top + 1)
+    }
+
+    private func externalBlock(_ event: ExternalEvent) -> some View {
+        let start = max(event.start, dayStart)
+        let end = max(min(event.end, dayInterval.end), start.addingTimeInterval(GridMetrics.minimumEventDuration))
+        let top = GridMetrics.y(for: start, dayStart: dayStart)
+        let height = max(GridMetrics.y(for: end, dayStart: dayStart) - top - 2, 8)
+        return ExternalEventBlock(event: event, height: height)
+            .frame(width: columnWidth - 2, height: height)
+            .padding(.leading, 1)
             .padding(.top, top + 1)
             .allowsHitTesting(false)
     }

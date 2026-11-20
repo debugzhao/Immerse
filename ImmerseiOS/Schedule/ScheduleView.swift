@@ -1,3 +1,4 @@
+import ImmerseAgent
 import ImmerseCore
 import SwiftUI
 
@@ -32,6 +33,8 @@ enum GridMetrics {
 /// The 日程 tab: header with mode switch, then the time grid (day / 3-day) or the month grid
 struct ScheduleView: View {
     @Environment(ScheduleState.self) private var schedule
+    @Environment(Secretary.self) private var secretary
+    @Environment(EventKitCalendarSource.self) private var systemCalendar
 
     var body: some View {
         @Bindable var schedule = schedule
@@ -48,6 +51,23 @@ struct ScheduleView: View {
             }
             .navigationTitle(schedule.title)
             .navigationBarTitleDisplayMode(.inline)
+            .overlay(alignment: .top) {
+                if let suggestion = schedule.suggestion {
+                    SuggestionBanner(suggestion: suggestion).padding(.top, 4)
+                }
+            }
+            .safeAreaInset(edge: .bottom) {
+                if let proposal = secretary.activeProposal {
+                    ProposalBar(proposal: proposal).transition(.move(edge: .bottom).combined(with: .opacity))
+                }
+            }
+            .overlay {
+                if secretary.isWorking {
+                    ProgressView("秘书正在安排…").padding().glassCard()
+                }
+            }
+            .animation(Motion.snappy, value: secretary.activeProposal?.id)
+            .animation(Motion.snappy, value: schedule.suggestion?.id)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
                     Button("今天") { withAnimation(Motion.snappy) { schedule.goToToday() } }
@@ -60,6 +80,7 @@ struct ScheduleView: View {
                     .frame(width: 168)
                 }
                 ToolbarItemGroup(placement: .topBarTrailing) {
+                    SecretaryMenu()
                     Button { withAnimation(Motion.snappy) { schedule.step(-1) } } label: { Image(systemName: "chevron.left") }
                         .accessibilityLabel("上一页")
                     Button { withAnimation(Motion.snappy) { schedule.step(1) } } label: { Image(systemName: "chevron.right") }
@@ -99,6 +120,59 @@ struct DayHeaderRow: View {
                 }
                 .buttonStyle(.plain)
             }
+        }
+    }
+}
+
+/// The secretary's actions for the visible days
+struct SecretaryMenu: View {
+    @Environment(ScheduleState.self) private var schedule
+    @Environment(Secretary.self) private var secretary
+    @Environment(TaskStore.self) private var taskStore
+    @Environment(EventKitCalendarSource.self) private var systemCalendar
+
+    var body: some View {
+        Menu {
+            Button {
+                Task { await planInbox() }
+            } label: { Label("把收集箱排进本周", systemImage: "tray.and.arrow.down") }
+            .disabled(taskStore.ideas().isEmpty)
+            Button {
+                if let proposal = secretary.reflow(from: .now) {
+                    schedule.showProposal(proposal, secretary: secretary)
+                } else {
+                    taskStore.toast = Toast(message: "今天剩下的安排不需要调整")
+                }
+            } label: { Label("重排今天", systemImage: "arrow.uturn.forward") }
+            Button {
+                let today = Date.now
+                if let proposal = secretary.overloadProposal(day: today) {
+                    schedule.showProposal(proposal, secretary: secretary)
+                } else {
+                    let load = secretary.insights().today
+                    taskStore.toast = Toast(message: "今天排了 \(DurationText.minutes(load.plannedMinutes * 60))，没有过载")
+                }
+            } label: { Label("检查今天是否过载", systemImage: "gauge.with.dots.needle.67percent") }
+            if !systemCalendar.isAuthorized {
+                Divider()
+                Button {
+                    Task { await systemCalendar.requestAccess() }
+                } label: { Label("读取系统日历的会议", systemImage: "calendar.badge.clock") }
+            }
+        } label: {
+            Image(systemName: "sparkles")
+        }
+        .accessibilityLabel("秘书")
+    }
+
+    private func planInbox() async {
+        if systemCalendar.isUndetermined { await systemCalendar.requestAccess() }
+        let proposal = await secretary.planInbox()
+        if let proposal {
+            schedule.showProposal(proposal, secretary: secretary)
+        } else if let notice = secretary.notice {
+            taskStore.toast = Toast(message: notice)
+            secretary.notice = nil
         }
     }
 }

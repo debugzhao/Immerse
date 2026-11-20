@@ -114,6 +114,23 @@ public final class TaskStore {
         }
     }
 
+    /// Writes several changes as one undo step (used to apply a secretary proposal).
+    /// `upserts` create or replace whole snapshots; `deletions` remove tasks by ID.
+    public func applyBatch(upserts: [TaskSnapshot], deletions: [UUID] = [], actionName: String) {
+        guard !upserts.isEmpty || !deletions.isEmpty else { return }
+        breakCoalescing()
+        undoStep(actionName) {
+            for snapshot in upserts {
+                let previous = task(id: snapshot.id)
+                guard previous != snapshot else { continue }
+                applyUpsert(snapshot, previous: previous)
+            }
+            for id in deletions {
+                if let previous = task(id: id) { applyDelete(previous) }
+            }
+        }
+    }
+
     /// Saves a hand-made order for a list (Inbox / Goals): `ids[i]` gets position i. One undo step
     public func reorder(_ ids: [UUID], actionName: String = "调整顺序") {
         breakCoalescing()

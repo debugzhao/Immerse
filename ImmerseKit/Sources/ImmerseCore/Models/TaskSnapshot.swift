@@ -4,7 +4,7 @@ import Foundation
 ///
 /// Layers above the data layer (stores, views) only touch this type and never hold SwiftData `@Model` objects directly:
 /// first, views avoid managed-object lifecycle problems; second, swapping storage later (iCloud / Notion sync) needs no upper-layer changes.
-public struct TaskSnapshot: Identifiable, Hashable, Sendable {
+public struct TaskSnapshot: Identifiable, Hashable, Codable, Sendable {
     public var id: UUID = UUID()
     public var title: String
     public var start: Date

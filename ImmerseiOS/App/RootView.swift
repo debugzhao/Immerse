@@ -1,3 +1,4 @@
+import ImmerseAgent
 import ImmerseCore
 import SwiftUI
 
@@ -6,6 +7,7 @@ struct RootView: View {
     @Environment(ScheduleState.self) private var schedule
     @Environment(TaskStore.self) private var taskStore
     @Environment(FocusEngine.self) private var focusEngine
+    @Environment(Secretary.self) private var secretary
 
     var body: some View {
         @Bindable var schedule = schedule
@@ -26,11 +28,25 @@ struct RootView: View {
                 .tag(AppTab.stats)
         }
         .overlay(alignment: .bottomTrailing) {
-            if schedule.selectedTab == .schedule || schedule.selectedTab == .planning {
-                AddButton { schedule.isCapturePresented = true }
-                    .padding(.trailing, 20)
-                    .padding(.bottom, 64)
-                    .transition(.scale.combined(with: .opacity))
+            if (schedule.selectedTab == .schedule && secretary.activeProposal == nil) || schedule.selectedTab == .planning {
+                VStack(alignment: .trailing, spacing: 10) {
+                    if schedule.hasClipboardHint {
+                        Button {
+                            schedule.isCapturePresented = true
+                        } label: {
+                            Label("粘贴为任务", systemImage: "doc.on.clipboard")
+                                .font(.footnote.weight(.semibold))
+                                .padding(.horizontal, 12)
+                                .padding(.vertical, 8)
+                                .glassCard(cornerRadius: 18)
+                        }
+                        .transition(.scale.combined(with: .opacity))
+                    }
+                    AddButton { schedule.isCapturePresented = true }
+                }
+                .padding(.trailing, 20)
+                .padding(.bottom, 64)
+                .transition(.scale.combined(with: .opacity))
             }
         }
         .overlay(alignment: .bottom) {
@@ -38,11 +54,24 @@ struct RootView: View {
                 .padding(.bottom, 64)
         }
         .animation(Motion.snappy, value: schedule.selectedTab)
+        .animation(Motion.snappy, value: schedule.hasClipboardHint)
         .sheet(item: $schedule.editor) { target in
             TaskEditorSheet(target: target)
         }
         .sheet(isPresented: $schedule.isCapturePresented) {
             CaptureSheet()
+        }
+        .sheet(item: $schedule.briefingTask) { task in
+            FocusBriefingSheet(task: task)
+        }
+        .alert("秘书想记住", isPresented: Binding(
+            get: { !secretary.pendingMemories.isEmpty },
+            set: { if !$0, let first = secretary.pendingMemories.first { secretary.pendingMemories.removeAll { $0.id == first.id } } }
+        ), presenting: secretary.pendingMemories.first) { memory in
+            Button("记住") { secretary.saveMemory(memory) }
+            Button("不用", role: .cancel) { secretary.pendingMemories.removeAll { $0.id == memory.id } }
+        } message: { memory in
+            Text(memory.text)
         }
         .fullScreenCover(isPresented: $focusEngine.isImmersivePresented) {
             ImmersiveFocusView()

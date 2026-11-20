@@ -1,4 +1,5 @@
 import Foundation
+import ImmerseAgent
 import ImmerseCore
 import Observation
 import SwiftData
@@ -15,6 +16,10 @@ final class AppModel {
     let schedule: ScheduleState
     let memories: MemoryRepository
     let container: ModelContainer?
+    let ai: AISettings
+    let secretary: Secretary
+    let calendarSource: EventKitCalendarSource
+    private var lastMissedCheck: Date?
     private let dailyReview: DailyReviewScheduler
     private let autoFocus: AutoFocusScheduler?
     private var syncMonitor: SyncMonitor?
@@ -62,6 +67,13 @@ final class AppModel {
         autoFocus = isEphemeral ? nil : AutoFocusScheduler(
             taskStore: taskStore, focusEngine: focusEngine, settings: settings, notifier: notifications, calendar: calendar)
 
+        ai = AISettings(defaults: isEphemeral ? UserDefaults(suiteName: "immerse.ephemeral") ?? .standard : .standard,
+                        secrets: isEphemeral ? InMemorySecretStore() : KeychainSecretStore())
+        calendarSource = EventKitCalendarSource()
+        secretary = Secretary(taskStore: taskStore, focusEngine: focusEngine, memories: memories, ai: ai,
+                              calendar: calendar, externalCalendar: calendarSource)
+        installSecretaryHooks()
+
         notifications.onAction = { [focusEngine] action in focusEngine.handle(action) }
         notifications.onAutoFocusAction = { [autoFocus] action, taskID in autoFocus?.handle(action, taskID: taskID) }
         notifications.onDailyReviewOpened = { [schedule] in schedule.selectedTab = .planning }
@@ -85,5 +97,47 @@ final class AppModel {
         focusEngine.tick()
         dailyReview.reschedule()
         autoFocus?.evaluate()
+        suggestReflowForMissedEvents()
+        schedule.refreshClipboardHint()
+    }
+
+    /// The secretary reacts to interruptions with a suggestion, never with a change (design §4)
+    private func installSecretaryHooks() {
+        let secretary = self.secretary, schedule = self.schedule
+        focusEngine.onSessionEnded = { state, reason in
+            guard reason == .abandoned else { return }
+            guard secretary.reflow() != nil else { return }
+            schedule.suggestion = Suggestion(message: "放弃了「\(state.taskTitle)」，后面的安排要顺延吗？", actionTitle: "看看怎么排") {
+                secretary.reflow()
+            }
+        }
+        focusEngine.onExtended = { state, count in
+            if count >= 2, secretary.ai.isAvailable, let task = secretary.context().tasks.first(where: { $0.id == state.taskID }) {
+                schedule.suggestion = Suggestion(message: "「\(state.taskTitle)」已经延长 \(count) 次了，要拆成小一点的步骤吗？",
+                                                 actionTitle: "帮我拆") { await secretary.splitProposal(task) }
+                return
+            }
+            let end = state.plannedEnd
+            guard secretary.reflow(from: end) != nil else { return }
+            schedule.suggestion = Suggestion(message: "延长后会压到后面的安排，要顺延吗？", actionTitle: "看看怎么排") {
+                secretary.reflow(from: end)
+            }
+        }
+    }
+
+    /// Events whose time has passed today but weren't done: offer to repack the rest of the day (at most hourly)
+    private func suggestReflowForMissedEvents(now: Date = .now) {
+        if let last = lastMissedCheck, now.timeIntervalSince(last) < 3600 { return }
+        lastMissedCheck = now
+        guard !focusEngine.isActive, schedule.suggestion == nil else { return }
+        let calendar = schedule.calendar
+        let today = calendar.startOfDay(for: now)
+        let missed = taskStore.tasks(in: DateInterval(start: today, end: now))
+            .filter { Reflow.isMovable($0) && $0.displayInterval(in: calendar).end <= now }
+        guard !missed.isEmpty, secretary.reflow(from: now) != nil else { return }
+        let secretary = self.secretary
+        schedule.suggestion = Suggestion(message: "有 \(missed.count) 个日程时间已过还没做，重排今天剩下的时间？", actionTitle: "重排") {
+            secretary.reflow(from: .now)
+        }
     }
 }

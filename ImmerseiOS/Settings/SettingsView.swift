@@ -12,6 +12,8 @@ struct SettingsView: View {
         @Bindable var settings = settings
         NavigationStack {
             Form {
+                AISettingsSection()
+
                 Section {
                     switch notifications.permission {
                     case .authorized:

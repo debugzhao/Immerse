@@ -1,3 +1,4 @@
+import ImmerseAgent
 import ImmerseCore
 import SwiftUI
 
@@ -14,6 +15,9 @@ struct ImmerseiOSApp: App {
                 .environment(model.settings)
                 .environment(model.notifications)
                 .environment(model.schedule)
+                .environment(model.secretary)
+                .environment(model.ai)
+                .environment(model.calendarSource)
         }
         .onChange(of: scenePhase) { _, phase in
             if phase == .active { model.didBecomeActive() }

@@ -1,6 +1,8 @@
 import Foundation
+import ImmerseAgent
 import ImmerseCore
 import Observation
+import UIKit
 
 /// Calendar modes on iPhone: one day, three days (fits a phone's width), and a month overview
 enum ScheduleMode: String, CaseIterable, Identifiable {
@@ -44,6 +46,14 @@ enum EditorTarget: Identifiable, Equatable {
     }
 }
 
+/// Something the secretary noticed and offers to fix; the proposal is only built when the user asks
+struct Suggestion: Identifiable {
+    let id = UUID()
+    let message: String
+    let actionTitle: String
+    let makeProposal: @MainActor () async -> PlanProposal?
+}
+
 /// UI state of the iPhone app (the macOS counterpart is `CalendarStore`, which carries Mac-only window state)
 @MainActor
 @Observable
@@ -56,6 +66,13 @@ final class ScheduleState {
     var isCapturePresented = false
     /// Bumped to ask the time grid to scroll to the current time
     var scrollToNowToken = 0
+    /// Banner offering a fix (reflow after an interruption, splitting a task…)
+    var suggestion: Suggestion?
+    /// Task waiting for its pre-focus briefing sheet
+    var briefingTask: TaskSnapshot?
+    /// The clipboard holds text since the user last looked: show "粘贴为任务" next to the + button
+    var hasClipboardHint = false
+    @ObservationIgnored private var dismissedPasteboardChange = UserDefaults.standard.integer(forKey: "clipboardHint.dismissed")
 
     init(anchorDate: Date = .now, calendar: Calendar = .app) {
         self.calendar = calendar
@@ -93,6 +110,29 @@ final class ScheduleState {
         case .month:
             anchorDate = calendar.date(byAdding: .month, value: direction, to: anchorDate) ?? anchorDate
         }
+    }
+
+    /// Shows a proposal on the calendar: switches to the schedule, three-day view, starting at its first item
+    func showProposal(_ proposal: PlanProposal?, secretary: Secretary) {
+        guard let proposal, !proposal.isEmpty else { return }
+        secretary.present(proposal)
+        if let first = proposal.items.map(\.operation.sortDate).filter({ $0 != .distantFuture }).min() {
+            anchorDate = calendar.startOfDay(for: first)
+            if mode == .month { mode = .threeDay }
+        }
+        selectedTab = .schedule
+    }
+
+    /// Checks (without reading it, so no paste prompt) whether there is new text on the clipboard
+    func refreshClipboardHint() {
+        let pasteboard = UIPasteboard.general
+        hasClipboardHint = pasteboard.changeCount != dismissedPasteboardChange && (pasteboard.hasStrings || pasteboard.hasURLs)
+    }
+
+    func dismissClipboardHint() {
+        dismissedPasteboardChange = UIPasteboard.general.changeCount
+        UserDefaults.standard.set(dismissedPasteboardChange, forKey: "clipboardHint.dismissed")
+        hasClipboardHint = false
     }
 
     func show(day: Date) {

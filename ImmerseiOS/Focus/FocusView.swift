@@ -1,3 +1,4 @@
+import ImmerseAgent
 import ImmerseCore
 import SwiftUI
 import UIKit
@@ -98,6 +99,7 @@ struct TodayStartList: View {
     @Environment(FocusEngine.self) private var focusEngine
     @Environment(TaskStore.self) private var taskStore
     @Environment(ScheduleState.self) private var schedule
+    @Environment(Secretary.self) private var secretary
 
     var body: some View {
         let calendar = schedule.calendar
@@ -121,8 +123,7 @@ struct TodayStartList: View {
                     }
                     Spacer()
                     Button {
-                        focusEngine.requestStart(task)
-                        Haptics.pickUp()
+                        startFocusWithBriefing(task, secretary: secretary, schedule: schedule, focusEngine: focusEngine)
                     } label: {
                         Label(DurationText.minutes(task.focusMinutes * 60), systemImage: "play.fill")
                             .font(.callout.weight(.semibold))

@@ -2,9 +2,9 @@ import Foundation
 
 /// Turns a pasted URL into a readable page mention: an instant title guessed from the URL,
 /// then the page's real title fetched in the background.
-enum LinkTitleResolver {
+public enum LinkTitleResolver {
     /// The pasted text as a web URL, or nil if it is anything else (a sentence, a path, several lines…)
-    static func webURL(from text: String) -> URL? {
+    public static func webURL(from text: String) -> URL? {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty, !trimmed.contains(where: \.isWhitespace),
               let url = URL(string: trimmed),
@@ -14,12 +14,12 @@ enum LinkTitleResolver {
     }
 
     /// Markdown for a page mention: `[@Title](url)`
-    static func mention(title: String, url: String) -> String {
+    public static func mention(title: String, url: String) -> String {
         "[@\(sanitized(title))](\(url))"
     }
 
     /// Link text can't contain brackets or newlines
-    static func sanitized(_ title: String) -> String {
+    public static func sanitized(_ title: String) -> String {
         title
             .replacingOccurrences(of: "[", with: "(")
             .replacingOccurrences(of: "]", with: ")")
@@ -28,7 +28,7 @@ enum LinkTitleResolver {
     }
 
     /// A title guessed from the URL alone, shown until (or instead of) the fetched one
-    static func provisionalTitle(for url: URL) -> String {
+    public static func provisionalTitle(for url: URL) -> String {
         let host = (url.host ?? "").lowercased()
         if isNotion(host) {
             // Notion slugs look like `Page-Title-<32 hex id>`
@@ -43,7 +43,7 @@ enum LinkTitleResolver {
     }
 
     /// Pulls the page title out of HTML: og:title, then twitter:title, then <title>
-    static func title(fromHTML html: String) -> String? {
+    public static func title(fromHTML html: String) -> String? {
         for property in ["og:title", "twitter:title"] {
             let tag = #"<meta[^>]+(?:property|name)\s*=\s*["']"# + NSRegularExpression.escapedPattern(for: property) + #"["'][^>]*>"#
             if let meta = firstMatch(tag, in: html, group: 0),
@@ -56,7 +56,7 @@ enum LinkTitleResolver {
     }
 
     /// Titles a site serves when it can't show the page (login walls), which would be worse than the guess
-    static func isGeneric(_ title: String, for url: URL) -> Bool {
+    public static func isGeneric(_ title: String, for url: URL) -> Bool {
         let lowered = title.lowercased()
         if isNotion((url.host ?? "").lowercased()) {
             return lowered == "notion" || lowered.hasPrefix("notion |") || lowered.hasPrefix("notion –") || lowered.hasPrefix("notion -")
@@ -65,7 +65,7 @@ enum LinkTitleResolver {
     }
 
     /// Fetches the page title; nil when offline, not HTML, or only a generic title is available
-    static func fetchTitle(for url: URL) async -> String? {
+    public static func fetchTitle(for url: URL) async -> String? {
         var request = URLRequest(url: url, timeoutInterval: 8)
         request.setValue("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15",
                          forHTTPHeaderField: "User-Agent")

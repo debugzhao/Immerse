@@ -25,7 +25,7 @@ public enum GoalPeriod: String, CaseIterable, Identifiable, Sendable {
 }
 
 /// Progress of a goal (pure computation, easy to test)
-public struct GoalProgress: Equatable {
+public struct GoalProgress: Equatable, Sendable {
     /// Focus time spent on the goal itself or on events linked to it, within the goal's period
     public let focusedMinutes: Int
     public let targetMinutes: Int?
