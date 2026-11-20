@@ -68,12 +68,14 @@ struct EventBlockView: View {
             GeometryReader { geometry in
                 // Narrow blocks (events side by side) can't fit the time; give all space to the title, as many lines as the height allows
                 let isNarrow = geometry.size.width < 64
+                // Compact blocks (short events stacked back to back) get a smaller one-line title
+                let isCompact = height < 16
                 let showsSubtitle = !isNarrow && height >= 34
                 let titleLines = max(1, Int((height - (showsSubtitle ? 22 : 6)) / 15))
                 VStack(alignment: .leading, spacing: 1) {
                     // Sessions booked for a goal carry a small target mark
                     (task.goalID != nil ? Text(Image(systemName: "target")) + Text(" ") + Text(task.displayTitle) : Text(task.displayTitle))
-                        .font(.system(size: isNarrow ? 11 : 12, weight: .semibold))
+                        .font(.system(size: isCompact ? 10 : isNarrow ? 11 : 12, weight: .semibold))
                         .strikethrough(isDone)
                         .lineLimit(min(titleLines, showsSubtitle ? 2 : 6))
                     if showsSubtitle {
@@ -87,7 +89,7 @@ struct EventBlockView: View {
                 .foregroundStyle(isDone ? .secondary : .primary)
                 .padding(.leading, isNarrow ? 4 : 6)
                 .padding(.trailing, isNarrow ? 2 : 4)
-                .padding(.vertical, height >= 34 ? 4 : 2)
+                .padding(.vertical, height >= 34 ? 4 : isCompact ? 0 : 2)
                 .frame(width: geometry.size.width, height: geometry.size.height, alignment: .topLeading)
             }
         }

@@ -33,9 +33,16 @@ struct DayColumnView: View {
 
     var body: some View {
         let segments = makeSegments()
+        let items = segments.map { LayoutItem(id: $0.id, start: $0.start, end: $0.end, priority: $0.task.priority) }
         let placements = EventLayoutEngine.layout(
-            segments.map { LayoutItem(id: $0.id, start: $0.start, end: $0.end, priority: $0.task.priority) },
-            minimumDuration: CalendarMetrics.minimumEventDuration
+            items,
+            minimumDuration: CalendarMetrics.minimumEventDuration,
+            compactDuration: CalendarMetrics.compactEventDuration
+        )
+        let displayEnds = EventLayoutEngine.displayEnds(
+            items,
+            minimumDuration: CalendarMetrics.minimumEventDuration,
+            compactDuration: CalendarMetrics.compactEventDuration
         )
 
         GeometryReader { geometry in
@@ -45,7 +52,8 @@ struct DayColumnView: View {
 
                 ForEach(segments) { segment in
                     if let placement = placements[segment.id] {
-                        block(for: segment, placement: placement, columnWidth: width)
+                        block(for: segment, placement: placement, displayEnd: displayEnds[segment.id] ?? segment.end,
+                              columnWidth: width)
                     }
                 }
 
@@ -109,11 +117,13 @@ struct DayColumnView: View {
     // MARK: - Event blocks
 
     @ViewBuilder
-    private func block(for segment: Segment, placement: LayoutPlacement, columnWidth: CGFloat) -> some View {
+    private func block(for segment: Segment, placement: LayoutPlacement, displayEnd: Date, columnWidth: CGFloat) -> some View {
         let slotWidth = columnWidth / CGFloat(placement.columnCount)
         let top = CalendarMetrics.yOffset(for: segment.start, dayStart: dayStart)
-        let bottom = CalendarMetrics.yOffset(for: segment.end, dayStart: dayStart)
-        let height = max(bottom - top, CalendarMetrics.minimumEventHeight) - 2
+        let bottom = CalendarMetrics.yOffset(for: displayEnd, dayStart: dayStart)
+        let height = max(bottom - top - 2, 4)
+        // Compact blocks keep a grabbable middle for moving: shrink the resize hot zones
+        let handleHeight: CGFloat = height < 16 ? 3 : 6
         let isDragging = activeDrag?.task.id == segment.task.id
 
         EventBlockView(
@@ -123,10 +133,10 @@ struct DayColumnView: View {
         )
         .frame(width: max(slotWidth * CGFloat(placement.span) - 3, 8), height: height)
         .overlay(alignment: .top) {
-            ResizeHandle().gesture(dragGesture(segment.task, mode: .resizeTop, columnWidth: columnWidth))
+            ResizeHandle(height: handleHeight).gesture(dragGesture(segment.task, mode: .resizeTop, columnWidth: columnWidth))
         }
         .overlay(alignment: .bottom) {
-            ResizeHandle().gesture(dragGesture(segment.task, mode: .resizeBottom, columnWidth: columnWidth))
+            ResizeHandle(height: handleHeight).gesture(dragGesture(segment.task, mode: .resizeBottom, columnWidth: columnWidth))
         }
         .gesture(dragGesture(segment.task, mode: .move, columnWidth: columnWidth))
         .opacity(isDragging ? 0.35 : 1)
@@ -209,9 +219,11 @@ struct DayColumnView: View {
 
 /// Drag hot zones on the top/bottom edges of an event block; shows a resize cursor on hover
 private struct ResizeHandle: View {
+    var height: CGFloat = 6
+
     var body: some View {
         Color.clear
-            .frame(height: 6)
+            .frame(height: height)
             .frame(maxWidth: .infinity)
             .contentShape(Rectangle())
             .onHover { inside in

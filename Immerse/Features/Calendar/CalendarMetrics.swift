@@ -13,6 +13,9 @@ enum CalendarMetrics {
     /// Minimum height of an event block, and the shortest duration it maps to for overlap checks
     static let minimumEventHeight: CGFloat = 20
     static var minimumEventDuration: TimeInterval { TimeInterval(minimumEventHeight / hourHeight * 3600) }
+    /// A short event followed closely by another may shrink to this height so the two stack instead of sitting side by side
+    static let compactEventHeight: CGFloat = 12
+    static var compactEventDuration: TimeInterval { TimeInterval(compactEventHeight / hourHeight * 3600) }
 
     static var gridHeight: CGFloat { hourHeight * 24 }
 
