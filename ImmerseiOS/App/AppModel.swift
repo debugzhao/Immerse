@@ -19,6 +19,8 @@ final class AppModel {
     let ai: AISettings
     let secretary: Secretary
     let calendarSource: EventKitCalendarSource
+    let preferences: SecretaryPreferences
+    private(set) var nudges: NudgeScheduler!
     private var lastMissedCheck: Date?
     private let dailyReview: DailyReviewScheduler
     private let autoFocus: AutoFocusScheduler?
@@ -26,6 +28,9 @@ final class AppModel {
 
     /// The App Group shared with the widget and App Intents
     static let appGroup = "group.com.debugzhao.immerse"
+    /// For App Intents running in the app process (Siri, widget buttons that open the app, Live Activity buttons)
+    private(set) static var shared: AppModel?
+    let liveActivities = LiveActivityController()
 
     init(calendar: Calendar = .app) {
         let isEphemeral = PersistenceController.isEphemeral
@@ -72,11 +77,17 @@ final class AppModel {
         calendarSource = EventKitCalendarSource()
         secretary = Secretary(taskStore: taskStore, focusEngine: focusEngine, memories: memories, ai: ai,
                               calendar: calendar, externalCalendar: calendarSource)
+        preferences = SecretaryPreferences(defaults: isEphemeral ? UserDefaults(suiteName: "immerse.ephemeral") ?? .standard : .standard)
+        nudges = NudgeScheduler(secretary: secretary, preferences: preferences, settings: settings,
+                                notifications: notifications, focusEngine: focusEngine, calendar: calendar)
         installSecretaryHooks()
+        // iOS suspends the app: due events start from the notification's 「开始专注」 button
+        notifications.startsDueEventsByItself = false
 
         notifications.onAction = { [focusEngine] action in focusEngine.handle(action) }
         notifications.onAutoFocusAction = { [autoFocus] action, taskID in autoFocus?.handle(action, taskID: taskID) }
-        notifications.onDailyReviewOpened = { [schedule] in schedule.selectedTab = .planning }
+        notifications.onDailyReviewOpened = { [schedule] in schedule.isReviewPresented = true }
+        notifications.onNudgeOpened = { [schedule] _ in schedule.isBriefingPresented = true }
 
         if !isEphemeral {
             syncMonitor = SyncMonitor(repository: repository) { [taskStore, focusEngine] in
@@ -88,6 +99,14 @@ final class AppModel {
         focusEngine.restore()
         dailyReview.start()
         autoFocus?.start()
+        if !isEphemeral { nudges.refresh() }
+        Self.shared = self
+    }
+
+    /// Background app refresh: rebuild tomorrow's briefing with the latest data
+    func backgroundRefresh() {
+        taskStore.reloadFromStore()
+        nudges.refresh()
     }
 
     /// Back in the foreground: timers were suspended, so catch up on everything that is time-driven
@@ -99,12 +118,16 @@ final class AppModel {
         autoFocus?.evaluate()
         suggestReflowForMissedEvents()
         schedule.refreshClipboardHint()
+        if !PersistenceController.isEphemeral { nudges.refresh() }
     }
 
     /// The secretary reacts to interruptions with a suggestion, never with a change (design §4)
     private func installSecretaryHooks() {
         let secretary = self.secretary, schedule = self.schedule
-        focusEngine.onSessionEnded = { state, reason in
+        // Quiet during focus: nudges that would land inside a session move to just after it
+        focusEngine.onStarted = { [weak self] _ in self?.nudges.refresh() }
+        focusEngine.onSessionEnded = { [weak self] state, reason in
+            self?.nudges.refresh()
             guard reason == .abandoned else { return }
             guard secretary.reflow() != nil else { return }
             schedule.suggestion = Suggestion(message: "放弃了「\(state.taskTitle)」，后面的安排要顺延吗？", actionTitle: "看看怎么排") {

@@ -72,11 +72,18 @@ targets:
     deploymentTarget: "17.0"
     sources:
       - ImmerseiOS
+      - ImmerseShared
     dependencies:
       - package: ImmerseKit
         product: ImmerseCore
       - package: ImmerseKit
         product: ImmerseAgent
+      - target: ImmerseWidgets
+    entitlements:
+      path: ImmerseiOS/Resources/ImmerseiOS.entitlements
+      properties:
+        com.apple.security.application-groups:
+          - group.com.debugzhao.immerse
     info:
       path: ImmerseiOS/Resources/Info.plist
       properties:
@@ -96,14 +103,51 @@ targets:
         NSCalendarsFullAccessUsageDescription: 读取系统日历里的会议，秘书排期时会避开它们。沉浸日程不会修改你的系统日历。
         NSMicrophoneUsageDescription: 按住麦克风说话，把你说的一句话记成待办。
         NSSpeechRecognitionUsageDescription: 把你说的话转成文字，用来快速记录待办。支持的设备上会在本机完成识别。
+        NSSupportsLiveActivities: true
+        BGTaskSchedulerPermittedIdentifiers:
+          - com.debugzhao.immerse.refresh
+        UIBackgroundModes:
+          - fetch
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.debugzhao.immerse
         PRODUCT_NAME: ImmerseiOS
         TARGETED_DEVICE_FAMILY: "1"
+        # Shared intents act through AppModel inside the app and through the App Group store in the widget
+        SWIFT_ACTIVE_COMPILATION_CONDITIONS: $(inherited) IMMERSE_APP
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
         # Simulator builds need no signing; set DEVELOPMENT_TEAM and switch to Automatic for devices / TestFlight
+        CODE_SIGN_STYLE: Automatic
+        CODE_SIGN_IDENTITY: ""
+
+  ImmerseWidgets:
+    type: app-extension
+    platform: iOS
+    deploymentTarget: "17.0"
+    sources:
+      - ImmerseWidgets
+      - ImmerseShared
+    dependencies:
+      - package: ImmerseKit
+        product: ImmerseCore
+    entitlements:
+      path: ImmerseWidgets/ImmerseWidgets.entitlements
+      properties:
+        com.apple.security.application-groups:
+          - group.com.debugzhao.immerse
+    info:
+      path: ImmerseWidgets/Info.plist
+      properties:
+        CFBundleDisplayName: 沉浸日程
+        CFBundleShortVersionString: "0.2.0"
+        CFBundleVersion: "1"
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.widgetkit-extension
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.debugzhao.immerse.widgets
+        TARGETED_DEVICE_FAMILY: "1"
         CODE_SIGN_STYLE: Automatic
         CODE_SIGN_IDENTITY: ""
 

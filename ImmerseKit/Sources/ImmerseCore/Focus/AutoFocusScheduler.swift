@@ -76,6 +76,9 @@ public enum AutoFocusAction: String {
     case abandon = "AUTO_FOCUS_ABANDON"
     /// "Another session is running": end it and focus on this event instead
     case switchFocus = "AUTO_FOCUS_SWITCH"
+    /// "Starting soon" / "it's time": start now. On iOS the app is suspended at the start time, so this button
+    /// on the notification is how a scheduled event gets started
+    case startNow = "AUTO_FOCUS_START"
 }
 
 /// System notifications used by auto-focus
@@ -179,6 +182,13 @@ public final class AutoFocusScheduler {
         case .switchFocus:
             guard !focusEngine.isFocusing(on: taskID),
                   let seconds = AutoFocus.plannedSeconds(for: task, at: now, calendar: calendar) else { break }
+            focusEngine.switchTo(task, plannedSeconds: seconds)
+        case .startNow:
+            guard !focusEngine.isFocusing(on: taskID) else { break }
+            markHandled(key, now: now)
+            // Before the start: the full planned length; after it: what's left of the event
+            let seconds = now < task.start ? task.focusMinutes * 60
+                : AutoFocus.plannedSeconds(for: task, at: now, calendar: calendar) ?? task.focusMinutes * 60
             focusEngine.switchTo(task, plannedSeconds: seconds)
         }
         evaluate()

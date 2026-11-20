@@ -1,3 +1,4 @@
+import ImmerseAgent
 import ImmerseCore
 import SwiftUI
 import UIKit
@@ -41,6 +42,8 @@ struct SettingsView: View {
                         LabeledContent("进度提醒", value: settings.progressMilestones.sorted().map { "\($0)%" }.joined(separator: " / "))
                     }
                 }
+
+                SecretaryPreferencesSection()
 
                 Section("每晚复盘") {
                     Toggle("提醒当天没完成的任务", isOn: $settings.dailyReviewEnabled)
@@ -87,5 +90,36 @@ private struct MilestonePicker: View {
             .foregroundStyle(.primary)
         }
         .navigationTitle("进度提醒")
+    }
+}
+
+/// Morning briefing time and the daily cap on proactive notifications
+struct SecretaryPreferencesSection: View {
+    @Environment(SecretaryPreferences.self) private var preferences
+
+    var body: some View {
+        @Bindable var preferences = preferences
+        Section {
+            Toggle("晨间简报", isOn: $preferences.morningBriefingEnabled)
+            if preferences.morningBriefingEnabled {
+                DatePicker("推送时间", selection: morningTime, displayedComponents: .hourAndMinute)
+            }
+            Stepper(value: $preferences.dailyNudgeBudget, in: 0...5) {
+                LabeledContent("每天最多主动提醒", value: "\(preferences.dailyNudgeBudget) 条")
+            }
+        } header: {
+            Text("秘书")
+        } footer: {
+            Text("包括晨间简报、截止风险、过载提醒和每晚复盘。专注期间不会打扰，到点的提醒会推迟到专注结束后。")
+        }
+    }
+
+    private var morningTime: Binding<Date> {
+        Binding(
+            get: { Calendar.app.startOfDay(for: .now).addingTimeInterval(TimeInterval(preferences.morningBriefingMinutes * 60)) },
+            set: {
+                let parts = Calendar.app.dateComponents([.hour, .minute], from: $0)
+                preferences.morningBriefingMinutes = (parts.hour ?? 8) * 60 + (parts.minute ?? 30)
+            })
     }
 }

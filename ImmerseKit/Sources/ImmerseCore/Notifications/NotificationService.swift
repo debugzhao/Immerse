@@ -29,8 +29,12 @@ public final class NotificationService: NSObject, FocusNotifying, AutoFocusNotif
     @ObservationIgnored public var onAutoFocusAction: ((AutoFocusAction, UUID) -> Void)?
     /// The daily review notification was tapped
     @ObservationIgnored public var onDailyReviewOpened: (() -> Void)?
+    /// A secretary nudge (morning briefing, risk alert…) was tapped; the argument is its identifier
+    @ObservationIgnored public var onNudgeOpened: ((String) -> Void)?
     /// A notification itself (not one of its buttons) was tapped: the platform brings the app forward (macOS)
     @ObservationIgnored public var onNotificationOpened: (() -> Void)?
+    /// macOS keeps running and starts a due event by itself; iOS is suspended, so its notification asks for a tap
+    @ObservationIgnored public var startsDueEventsByItself = true
     /// Extra sound when time is up while the app is running (macOS plays "Glass"; iOS relies on the notification sound)
     @ObservationIgnored public var playTimeUpSound: (() -> Void)?
 
@@ -55,10 +59,11 @@ public final class NotificationService: NSObject, FocusNotifying, AutoFocusNotif
         let skip = UNNotificationAction(identifier: AutoFocusAction.skip.rawValue, title: "跳过", options: [])
         let abandon = UNNotificationAction(identifier: AutoFocusAction.abandon.rawValue, title: "放弃本次", options: [])
         let switchFocus = UNNotificationAction(identifier: AutoFocusAction.switchFocus.rawValue, title: "切换到这个日程", options: [])
+        let startNow = UNNotificationAction(identifier: AutoFocusAction.startNow.rawValue, title: "开始专注", options: [.foreground])
         center.setNotificationCategories([
             UNNotificationCategory(identifier: Self.categoryID, actions: [complete, extend],
                                    intentIdentifiers: [], options: []),
-            UNNotificationCategory(identifier: Self.upcomingCategoryID, actions: [snooze, skip],
+            UNNotificationCategory(identifier: Self.upcomingCategoryID, actions: [startNow, snooze, skip],
                                    intentIdentifiers: [], options: []),
             UNNotificationCategory(identifier: Self.autoStartedCategoryID, actions: [abandon],
                                    intentIdentifiers: [], options: []),
@@ -161,6 +166,32 @@ public final class NotificationService: NSObject, FocusNotifying, AutoFocusNotif
         center.removePendingNotificationRequests(withIdentifiers: [Self.dailyReviewID])
     }
 
+    // MARK: - Secretary nudges
+
+    public nonisolated static let nudgePrefix = "nudge."
+
+    /// A one-off proactive notification (morning briefing, deadline alert…). Same identifier replaces the queued one.
+    /// - Parameter isPassive: delivered quietly to Notification Center, without sound or lighting the screen
+    public func scheduleNudge(id: String, at date: Date, title: String, body: String, isPassive: Bool, calendar: Calendar) {
+        guard !isSilenced, date > Date.now else { return }
+        let content = UNMutableNotificationContent()
+        content.title = title
+        content.body = body
+        content.sound = isPassive ? nil : .default
+        content.interruptionLevel = isPassive ? .passive : .active
+        let components = calendar.dateComponents([.year, .month, .day, .hour, .minute], from: date)
+        let request = UNNotificationRequest(identifier: Self.nudgePrefix + id, content: content,
+                                            trigger: UNCalendarNotificationTrigger(dateMatching: components, repeats: false))
+        center.add(request) { [logger] error in
+            if let error { logger.error("安排秘书提醒失败：\(error.localizedDescription, privacy: .public)") }
+        }
+    }
+
+    public func cancelNudges(ids: [String]) {
+        guard !isSilenced else { return }
+        center.removePendingNotificationRequests(withIdentifiers: ids.map { Self.nudgePrefix + $0 })
+    }
+
     // MARK: - Auto focus
 
     public func scheduleAutoFocusUpcoming(taskID: UUID, title: String, start: Date, at date: Date) {
@@ -169,7 +200,9 @@ public final class NotificationService: NSObject, FocusNotifying, AutoFocusNotif
         let lead = max(Int((start.timeIntervalSince(date) / 60).rounded()), 1)
         let content = UNMutableNotificationContent()
         content.title = "「\(title)」\(lead) 分钟后开始"
-        content.body = "\(TimeText.hhmm(start)) 到点会自动开始专注，任务转为进行中"
+        content.body = startsDueEventsByItself
+            ? "\(TimeText.hhmm(start)) 到点会自动开始专注，任务转为进行中"
+            : "\(TimeText.hhmm(start)) 开始，点「开始专注」进入倒计时"
         content.sound = .default
         content.categoryIdentifier = Self.upcomingCategoryID
         content.userInfo = [Self.taskIDKey: taskID.uuidString]
@@ -256,7 +289,9 @@ extension NotificationService: UNUserNotificationCenterDelegate {
                                             didReceive response: UNNotificationResponse) async {
         let identifier = response.actionIdentifier
         let taskID = (response.notification.request.content.userInfo[Self.taskIDKey] as? String).flatMap(UUID.init)
-        let isDailyReview = response.notification.request.identifier == Self.dailyReviewID
+        let requestID = response.notification.request.identifier
+        let isDailyReview = requestID == Self.dailyReviewID
+        let nudgeID = requestID.hasPrefix(Self.nudgePrefix) ? String(requestID.dropFirst(Self.nudgePrefix.count)) : nil
         await MainActor.run {
             if let action = AutoFocusAction(rawValue: identifier), let taskID {
                 onAutoFocusAction?(action, taskID)
@@ -266,6 +301,7 @@ extension NotificationService: UNUserNotificationCenterDelegate {
                 // tapped the notification itself: bring the app to the front
                 onNotificationOpened?()
                 if isDailyReview { onDailyReviewOpened?() }
+                if let nudgeID { onNudgeOpened?(nudgeID) }
             }
         }
     }

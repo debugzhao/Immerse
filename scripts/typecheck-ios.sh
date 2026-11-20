@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Type-check the iOS app and extension sources against the iOS 17 simulator SDK, without an installed simulator runtime.
 # Builds ImmerseCore for iOS first, then runs `swiftc -typecheck` per target folder.
-# Usage: scripts/typecheck-ios.sh [folder ...]   (default: ImmerseiOS ImmerseWidgets)
+# Usage: scripts/typecheck-ios.sh
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
@@ -16,13 +16,14 @@ SCRATCH=build/ImmerseKit-ios
 swift build --package-path ImmerseKit --triple "$TRIPLE" --sdk "$SDK" --scratch-path "$SCRATCH" >/dev/null
 MODULES="$SCRATCH/arm64-apple-ios-simulator/debug/Modules"
 
-FOLDERS=("$@")
-[[ ${#FOLDERS[@]} -gt 0 ]] || FOLDERS=(ImmerseiOS ImmerseWidgets)
-for folder in "${FOLDERS[@]}"; do
-  [[ -d "$folder" ]] || continue
-  echo "▶ typecheck $folder"
-  find "$folder" -name "*.swift" -print0 | xargs -0 xcrun swiftc -typecheck -parse-as-library \
-    -target "$TRIPLE" -sdk "$SDK" -I "$MODULES" -module-name "$(basename "$folder")" \
+# Each target: its folders, plus extra compiler flags
+check() {
+  local name=$1 flags=$2; shift 2
+  echo "▶ typecheck $name"
+  find "$@" -name "*.swift" -print0 | xargs -0 xcrun swiftc -typecheck -parse-as-library \
+    -target "$TRIPLE" -sdk "$SDK" -I "$MODULES" -module-name "$name" $flags \
     -swift-version 5 -strict-concurrency=complete -enable-upcoming-feature InferSendableFromCaptures
-done
+}
+check ImmerseiOS "-D IMMERSE_APP" ImmerseiOS ImmerseShared
+check ImmerseWidgets "" ImmerseWidgets ImmerseShared
 echo "✅ iOS sources type-check"

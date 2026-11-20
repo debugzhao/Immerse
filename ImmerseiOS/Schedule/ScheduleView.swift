@@ -133,6 +133,9 @@ struct SecretaryMenu: View {
 
     var body: some View {
         Menu {
+            Button { schedule.isBriefingPresented = true } label: { Label("今日简报", systemImage: "sun.max") }
+            Button { schedule.isReviewPresented = true } label: { Label("今天的复盘", systemImage: "moon.stars") }
+            Divider()
             Button {
                 Task { await planInbox() }
             } label: { Label("把收集箱排进本周", systemImage: "tray.and.arrow.down") }

@@ -64,6 +64,8 @@ struct RootView: View {
         .sheet(item: $schedule.briefingTask) { task in
             FocusBriefingSheet(task: task)
         }
+        .sheet(isPresented: $schedule.isBriefingPresented) { MorningBriefingView() }
+        .sheet(isPresented: $schedule.isReviewPresented) { EveningReviewView() }
         .alert("秘书想记住", isPresented: Binding(
             get: { !secretary.pendingMemories.isEmpty },
             set: { if !$0, let first = secretary.pendingMemories.first { secretary.pendingMemories.removeAll { $0.id == first.id } } }

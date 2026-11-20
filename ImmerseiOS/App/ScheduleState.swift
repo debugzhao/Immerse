@@ -70,6 +70,8 @@ final class ScheduleState {
     var suggestion: Suggestion?
     /// Task waiting for its pre-focus briefing sheet
     var briefingTask: TaskSnapshot?
+    var isBriefingPresented = false
+    var isReviewPresented = false
     /// The clipboard holds text since the user last looked: show "粘贴为任务" next to the + button
     var hasClipboardHint = false
     @ObservationIgnored private var dismissedPasteboardChange = UserDefaults.standard.integer(forKey: "clipboardHint.dismissed")
