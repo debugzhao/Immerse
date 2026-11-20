@@ -1,6 +1,7 @@
 import Image from "next/image"
 import Link from "next/link"
 import { CurrentYear } from "./current-year"
+import { FeatureGroups } from "./feature-groups"
 import { ArrowDown, ArrowRight, ArrowUpRight, CalendarDays, Command, Focus, Sparkles } from "lucide-react"
 
 const features = [
@@ -39,8 +40,9 @@ export default function Home() {
 
       <section className="intro wrap" id="features">
         <div className="section-label"><span>一切，刚刚好</span><span>01 — 功能</span></div>
-        <div className="intro-heading"><h2>一份日程，<br /><span>一段专注。</span></h2><p>Immerse 是一款沉浸式日程管理 App：先安排一天，再一键开始倒计时。全屏专注、菜单栏计时与贴心提醒，让计划真正落地。</p></div>
+        <div className="intro-heading"><h2>一份日程，一段专注。<br /><span>再多一位懂你的搭档。</span></h2><p>先在 Mac 安排一天，再把专注带进每个空档。iPhone 版与私人日程秘书仍在打磨：前者让计划随身可见，后者把零散想法变成安排，并在调整前先征求你的同意；你专注时，它会安静等待。</p></div>
         <div className="feature-grid">{features.map(({ icon: Icon, number, title, text }) => <article className="feature-card" key={number}><div className="feature-top"><span className="feature-icon"><Icon size={19} strokeWidth={1.55} /></span><span>{number}</span></div><h3>{title}</h3><p>{text}</p></article>)}</div>
+        <FeatureGroups />
       </section>
 
       <section className="focus-band"><div className="focus-glow" /><div className="focus-inner wrap"><span className="section-kicker">专注，从一键开始</span><p>开始倒计时。<br /><span>进入全屏沉浸。</span></p><span className="focus-foot">菜单栏显示剩余时间 · 暂停、延长、完成或放弃</span></div></section>
