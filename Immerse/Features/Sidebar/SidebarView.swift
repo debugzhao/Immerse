@@ -2,7 +2,7 @@ import SwiftUI
 
 /// Left sidebar: mini month, today's tasks and the focus summary. The Inbox and Goals live in the planning panel on
 /// the right of the calendar, so they stay in view instead of hiding behind a tab.
-/// The system sidebar vibrancy comes from NavigationSplitView.
+/// Painted with `SidebarBackground` over the system sidebar material so it matches the planning panel on the right.
 struct SidebarView: View {
     var body: some View {
         ScrollView {
@@ -16,6 +16,7 @@ struct SidebarView: View {
             .padding(.top, 12)
             .padding(.bottom, 16)
         }
+        .background(SidebarBackground())
     }
 }
 

@@ -11,6 +11,8 @@ struct RootView: View {
     @Environment(\.openWindow) private var openWindow
     @Environment(\.openSettings) private var openSettings
     @State private var columnVisibility: NavigationSplitViewVisibility = .all
+    /// The planning panel on the right, remembered across launches
+    @AppStorage(PlanningPanel.visibilityKey) private var isPlanningPanelVisible = true
 
     var body: some View {
         NavigationSplitView(columnVisibility: $columnVisibility) {
@@ -18,6 +20,18 @@ struct RootView: View {
                 .navigationSplitViewColumnWidth(min: 220, ideal: 248, max: 320)
         } detail: {
             CalendarContainerView()
+        }
+        // Attached to the split view (not the detail) so it runs the full window height like the sidebar,
+        // with its own stretch of title bar; drag its edge to resize or collapse it
+        .inspector(isPresented: $isPlanningPanelVisible) {
+            PlanningPanel()
+                .inspectorColumnWidth(min: PlanningPanel.minimumWidth, ideal: PlanningPanel.width,
+                                      max: PlanningPanel.maximumWidth)
+                .toolbar {
+                    // Flexible space first, so the toggle sits in the window's top-right corner
+                    ToolbarItem(placement: .primaryAction) { Spacer() }
+                    ToolbarItem(placement: .primaryAction) { PlanningPanelToggle() }
+                }
         }
         .overlay(alignment: .bottom) {
             ToastOverlay()

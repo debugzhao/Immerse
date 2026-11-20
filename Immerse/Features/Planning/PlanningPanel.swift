@@ -2,11 +2,11 @@ import ImmerseCore
 import SwiftUI
 
 /// Right-hand planning panel: Inbox and Goals side by side with the calendar, so they stay in view
-/// and dragging an item onto the calendar is a short trip. Open / closed is remembered.
+/// and dragging an item onto the calendar is a short trip. Shown as an inspector column; open / closed is remembered.
 struct PlanningPanel: View {
     static let width: CGFloat = 248
-    /// Below this calendar width the panel is hidden automatically (the calendar would get too cramped)
-    static let minimumCalendarWidth: CGFloat = 560
+    static let minimumWidth: CGFloat = 220
+    static let maximumWidth: CGFloat = 360
     static let visibilityKey = "planningPanel.visible"
 
     var body: some View {
@@ -24,17 +24,13 @@ struct PlanningPanel: View {
             .padding(.top, 12)
             .padding(.bottom, 16)
         }
-        .frame(width: Self.width)
-        .background(VisualEffectBackground(material: .sidebar))
-        .overlay(alignment: .leading) {
-            Rectangle().fill(Palette.gridLine).frame(width: 0.5)
-        }
+        .background(SidebarBackground())
     }
 }
 
 /// Toolbar button that opens / closes the planning panel. While closed it shows how many ideas wait in the Inbox
 struct PlanningPanelToggle: View {
-    @Binding var isVisible: Bool
+    @AppStorage(PlanningPanel.visibilityKey) private var isVisible = true
     @Environment(TaskStore.self) private var taskStore
 
     var body: some View {
@@ -53,5 +49,15 @@ struct PlanningPanelToggle: View {
         }
         .keyboardShortcut("p", modifiers: [.command, .option])
         .help(isVisible ? "收起规划面板（⌥⌘P）" : "打开规划面板：收集箱和目标（⌥⌘P）")
+    }
+}
+
+/// Background shared by the left sidebar and the planning panel, so the two match exactly.
+/// Blends with the window rather than the desktop (`.withinWindow`): a desktop-tinted material takes its color from
+/// whatever wallpaper sits behind each side, so the left and right edges of the window came out in different grays.
+struct SidebarBackground: View {
+    var body: some View {
+        VisualEffectBackground(material: .sidebar, blendingMode: .withinWindow)
+            .ignoresSafeArea()
     }
 }
