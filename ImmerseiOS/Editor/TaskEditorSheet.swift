@@ -101,6 +101,21 @@ struct TaskEditorSheet: View {
                                 Label("开始专注 \(DurationText.minutes(draft.focusMinutes * 60))", systemImage: "play.fill")
                             }
                         }
+                        if hasDeadline && draft.status != .done {
+                            Button {
+                                save()
+                                let proposal = secretary.backPlan(taskStore.task(id: draft.id) ?? draft)
+                                dismiss()
+                                if let proposal {
+                                    schedule.showProposal(proposal, secretary: secretary)
+                                } else if let notice = secretary.notice {
+                                    taskStore.toast = Toast(message: notice)
+                                    secretary.notice = nil
+                                }
+                            } label: {
+                                Label("按截止日倒推安排", systemImage: "calendar.badge.clock")
+                            }
+                        }
                         if secretary.ai.isAvailable && draft.status != .done {
                             Button {
                                 Task {

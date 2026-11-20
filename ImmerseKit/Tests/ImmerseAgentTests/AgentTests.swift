@@ -307,6 +307,22 @@ struct SecretaryTests {
         #expect(store.task(id: idea.id)?.kind == .idea)
     }
 
+    @Test func 截止日倒推分天并留出余量() {
+        let task = Fixture.idea("季度方案", minutes: 240, deadline: Fixture.date(21, 18))
+        let (secretary, _) = makeSecretary(tasks: [task])
+        let proposal = secretary.backPlan(task, now: Fixture.now)
+        let starts = proposal?.items.map(\.operation.sortDate) ?? []
+        #expect(starts.count == 3) // 90 + 90 + 60
+        #expect(Set(starts.map { Fixture.calendar.startOfDay(for: $0) }).count == 3)
+        let ends = proposal?.items.compactMap { item -> Date? in
+            switch item.operation { case .update(let t), .create(let t): t.end; default: nil }
+        } ?? []
+        #expect(ends.allSatisfy { $0 <= Fixture.date(21, 6) })
+        #expect(proposal?.items.allSatisfy {
+            switch $0.operation { case .update(let t), .create(let t): t.deadline == Fixture.date(21, 18); default: false }
+        } == true)
+    }
+
     @Test func 用量按月累计() {
         let defaults = UserDefaults(suiteName: "usage-\(UUID().uuidString)")!
         let ai = AISettings(defaults: defaults, secrets: InMemorySecretStore(), now: Fixture.now)

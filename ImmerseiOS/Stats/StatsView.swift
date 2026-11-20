@@ -1,4 +1,5 @@
 import Charts
+import ImmerseAgent
 import ImmerseCore
 import SwiftUI
 
@@ -38,6 +39,7 @@ struct StatsView: View {
                     }
                     .padding()
                     .glassCard()
+                    InsightsSection()
                     if !stats.topTasks.isEmpty {
                         VStack(alignment: .leading, spacing: 10) {
                             Text("本周专注最多").font(.headline)

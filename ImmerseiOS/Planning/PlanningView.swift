@@ -13,6 +13,7 @@ struct PlanningView: View {
     @State private var newIdea = ""
     @State private var newGoal = ""
     @State private var newGoalPeriod: GoalPeriod = .week
+    @State private var cadenceGoal: TaskSnapshot?
 
     private var calendar: Calendar { schedule.calendar }
 
@@ -24,6 +25,7 @@ struct PlanningView: View {
             }
             .listStyle(.insetGrouped)
             .navigationTitle("规划")
+            .sheet(item: $cadenceGoal) { GoalCadenceSheet(goal: $0) }
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button {
@@ -116,9 +118,11 @@ struct PlanningView: View {
                 TextField("新的目标…", text: $newGoal)
                     .submitLabel(.done)
                     .onSubmit {
-                        if taskStore.createGoal(newGoal, period: newGoalPeriod, calendar: calendar) != nil {
+                        if let goal = taskStore.createGoal(newGoal, period: newGoalPeriod, calendar: calendar) {
                             newGoal = ""
                             Haptics.success()
+                            // Offer to turn the new goal into a weekly rhythm right away
+                            cadenceGoal = goal
                         }
                     }
                 Picker("周期", selection: $newGoalPeriod) {
@@ -137,6 +141,10 @@ struct PlanningView: View {
                             Label(goal.status == .done ? "恢复" : "完成", systemImage: "checkmark")
                         }
                         .tint(.green)
+                        Button { cadenceGoal = goal } label: {
+                            Label("排节奏", systemImage: "metronome")
+                        }
+                        .tint(Palette.brand)
                     }
                     .swipeActions(edge: .trailing) {
                         Button(role: .destructive) { taskStore.delete(id: goal.id) } label: { Label("删除", systemImage: "trash") }

@@ -172,6 +172,38 @@ public final class Secretary {
         return ProposalValidator.validate(PlanProposal(origin: .deadline, summary: summary, items: items, createdAt: now), context: context)
     }
 
+    /// Plans a task with a deadline backwards: the remaining time is cut into blocks spread over the days before the
+    /// deadline, and the last block ends at least `deadlineBuffer` early (design §5.2 ⑦)
+    public static let deadlineBuffer: TimeInterval = 12 * 3600
+
+    public func backPlan(_ task: TaskSnapshot, now: Date = .now) -> PlanProposal? {
+        guard let deadline = task.deadline, deadline > now, task.status != .done else { return nil }
+        let context = context(now: now)
+        let required = max(context.estimatedMinutes(for: task) - context.focusedMinutes(on: task.id), 15)
+        // Keep the buffer when there's room for it; with a deadline this close, use all the time there is
+        let latest = deadline.addingTimeInterval(-Self.deadlineBuffer) > now.addingTimeInterval(TimeInterval(required * 60))
+            ? deadline.addingTimeInterval(-Self.deadlineBuffer) : deadline
+        var planned = task
+        planned.plannedMinutes = required
+        planned.deadline = latest
+        let slots = SlotFinder.freeSlots(in: DateInterval(start: now, end: latest), context: context, excluding: [task.id])
+        let result = Scheduler.plan([planned], into: slots, context: context)
+        guard !result.items.isEmpty else {
+            notice = "截止前没有足够的空档，考虑挪走一些安排"
+            return nil
+        }
+        let items = result.items.map { item -> PlanProposal.Item in
+            var item = item
+            // Keep the real deadline on the task; the earlier one only steered the placement
+            if case .update(var updated) = item.operation { updated.deadline = deadline; item.operation = .update(updated) }
+            if case .create(var created) = item.operation { created.deadline = deadline; item.operation = .create(created) }
+            return item
+        }
+        var summary = "按截止日倒推：「\(task.displayTitle)」分 \(items.count) 次完成"
+        if !result.unplaced.isEmpty { summary += "，还差 \(DurationText.minutes(result.unplaced.reduce(0) { $0 + ($1.plannedMinutes ?? 0) } * 60))" }
+        return ProposalValidator.validate(PlanProposal(origin: .deadline, summary: summary, items: items, createdAt: now), context: context)
+    }
+
     /// Weekly rhythm for a goal, booked into high-energy slots
     public func goalPlan(_ goal: TaskSnapshot, targetMinutes: Int, now: Date = .now) -> (cadence: GoalCadence, proposal: PlanProposal?)? {
         let context = context(now: now)
@@ -261,6 +293,19 @@ public final class Secretary {
         return StructuredCalls.ruleMemory(text, now: now)
     }
 
+    /// Bumped on every memory change so the memory list refreshes
+    public private(set) var memoryRevision = 0
+
+    public func allMemories() -> [MemorySnapshot] {
+        _ = memoryRevision
+        return (try? memories.memories()) ?? []
+    }
+
+    public func deleteMemory(_ id: UUID) {
+        try? memories.deleteMemory(id: id)
+        memoryRevision += 1
+    }
+
     public func saveMemory(_ memory: MemorySnapshot) {
         do {
             try memories.upsert(memory)
@@ -268,6 +313,7 @@ public final class Secretary {
             notice = "保存记忆失败：\(error.localizedDescription)"
         }
         pendingMemories.removeAll { $0.id == memory.id }
+        memoryRevision += 1
     }
 
     // MARK: - Insights & briefings

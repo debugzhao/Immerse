@@ -37,6 +37,12 @@ struct AISettingsSection: View {
         }
 
         Section {
+            NavigationLink { MemoryListView() } label: { Label("秘书记忆", systemImage: "brain") }
+        } footer: {
+            Text("秘书记住的固定安排和偏好，可以随时查看、修改或删除。")
+        }
+
+        Section {
             switch systemCalendar.status {
             case .fullAccess:
                 Label("已读取系统日历，排期会避开会议", systemImage: "checkmark.circle.fill").foregroundStyle(.green)
