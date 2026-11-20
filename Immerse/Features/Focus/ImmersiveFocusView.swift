@@ -1,4 +1,5 @@
 import AppKit
+import ImmerseCore
 import SwiftUI
 
 /// Fullscreen immersive view: shows only the task name, large countdown, progress, and notes, over vibrancy + a soft priority-colored glow.

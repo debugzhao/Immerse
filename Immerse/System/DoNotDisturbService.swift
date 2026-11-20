@@ -1,26 +1,7 @@
 import AppKit
 import Foundation
+import ImmerseCore
 import Observation
-
-/// Abstraction over the Do Not Disturb switch. The real implementation goes through Shortcuts; tests use a fake.
-@MainActor
-protocol DoNotDisturbServicing: AnyObject {
-    /// Whether the user enabled "auto-enable Do Not Disturb during focus" in settings
-    var isEnabledInSettings: Bool { get }
-    /// Whether Do Not Disturb is currently on because of Immerse (used for recovery after a crash)
-    var isActivatedByApp: Bool { get }
-    func activate() async throws
-    func deactivate() async throws
-}
-
-/// Implementation that does nothing
-@MainActor
-final class NoopDoNotDisturbService: DoNotDisturbServicing {
-    var isEnabledInSettings: Bool { false }
-    var isActivatedByApp: Bool { false }
-    func activate() async throws {}
-    func deactivate() async throws {}
-}
 
 /// Toggles Do Not Disturb via Shortcuts.
 ///

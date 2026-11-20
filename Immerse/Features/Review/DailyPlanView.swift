@@ -1,3 +1,4 @@
+import ImmerseCore
 import SwiftUI
 
 /// "今日规划" sheet: the Inbox and lagging goals on the left, today's free time on the right.

@@ -1,3 +1,4 @@
+import ImmerseCore
 import SwiftUI
 
 /// Setup steps for the Clock countdown shortcut, plus live status and a 1-minute test. Shared by Settings and onboarding

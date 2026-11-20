@@ -1,4 +1,6 @@
+import AppKit
 import Foundation
+import ImmerseCore
 
 /// Dependency-injection root: creates and owns all stores and system services; the app entry injects them into the view environment.
 @MainActor
@@ -52,6 +54,7 @@ final class AppEnvironment {
         notifications.onDailyReviewOpened = {
             UserDefaults.standard.set(true, forKey: PlanningPanel.visibilityKey)
         }
+        focusEngine.onTimeUpAttention = { NSApp?.requestUserAttention(.criticalRequest) }
         if !isEphemeral {
             focusEngine.onStarted = { [clockTimer] session in
                 clockTimer.startIfEnabled(minutes: max(session.plannedSeconds / 60, 1))

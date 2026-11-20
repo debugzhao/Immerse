@@ -1,3 +1,4 @@
+import ImmerseCore
 import SwiftUI
 
 /// Right-hand planning panel: Inbox and Goals side by side with the calendar, so they stay in view

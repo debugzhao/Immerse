@@ -1,3 +1,4 @@
+import ImmerseCore
 import SwiftUI
 
 /// Do Not Disturb setup guide: explains why the Shortcut is needed, how to create it, and checks whether it exists. Shared by first launch and Settings

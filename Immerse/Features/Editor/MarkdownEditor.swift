@@ -1,4 +1,5 @@
 import AppKit
+import ImmerseCore
 import SwiftUI
 
 /// Live-preview Markdown notes editor (Typora / Notion style). The stored text stays plain Markdown.

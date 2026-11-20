@@ -1,4 +1,5 @@
 import AppKit
+import ImmerseCore
 import SwiftUI
 
 /// One day's time column: lays out that day's timed tasks and handles drag-to-create, move, and resize

@@ -1,3 +1,4 @@
+import ImmerseCore
 import SwiftData
 import SwiftUI
 

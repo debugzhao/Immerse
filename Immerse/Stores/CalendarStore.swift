@@ -1,4 +1,5 @@
 import Foundation
+import ImmerseCore
 import Observation
 
 enum CalendarMode: String, CaseIterable, Identifiable, Sendable {
@@ -22,17 +23,6 @@ enum CalendarMode: String, CaseIterable, Identifiable, Sendable {
         case .month: "月"
         }
     }
-}
-
-extension Calendar {
-    /// The calendar used app-wide: Gregorian, Chinese locale, weeks start on Monday.
-    static let app: Calendar = {
-        var calendar = Calendar(identifier: .gregorian)
-        calendar.locale = Locale(identifier: "zh_CN")
-        calendar.firstWeekday = 2
-        calendar.minimumDaysInFirstWeek = 4
-        return calendar
-    }()
 }
 
 struct ScrollRequest: Equatable {

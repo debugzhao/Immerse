@@ -1,4 +1,5 @@
 import Foundation
+import ImmerseCore
 import Observation
 import OSLog
 

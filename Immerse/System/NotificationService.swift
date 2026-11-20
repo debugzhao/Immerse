@@ -1,35 +1,9 @@
 import AppKit
 import Foundation
+import ImmerseCore
 import OSLog
 // UNUserNotificationCenter is not yet marked Sendable in the macOS 14 SDK, but it is thread-safe
 @preconcurrency import UserNotifications
-
-/// Focus-related notifications
-@MainActor
-protocol FocusNotifying: AnyObject {
-    func requestAuthorizationIfNeeded() async
-    /// Fallback notification: if the app is killed or hangs, the system still alerts at the expected end time
-    func scheduleBackup(at date: Date, title: String)
-    func cancelBackup()
-    /// Time is up: send a notification immediately and play a sound
-    func postTimeUp(title: String)
-    /// Progress reminders (e.g. halfway, 80%), delivered by the system on schedule
-    func scheduleProgress(_ reminders: [FocusProgressReminder], title: String)
-    func cancelProgress()
-}
-
-/// A progress reminder: fires when focus reaches percent%, with remainingSeconds left at that point
-struct FocusProgressReminder: Equatable {
-    let percent: Int
-    let date: Date
-    let remainingSeconds: Int
-}
-
-/// Quick actions on the notification
-enum FocusNotificationAction: String {
-    case complete = "COMPLETE"
-    case extend = "EXTEND_15"
-}
 
 @MainActor
 @Observable
@@ -303,19 +277,3 @@ extension NotificationService: UNUserNotificationCenterDelegate {
     }
 }
 
-/// For tests: records calls
-@MainActor
-final class RecordingNotifier: FocusNotifying {
-    private(set) var backups: [Date] = []
-    private(set) var timeUps: [String] = []
-    private(set) var cancelCount = 0
-    private(set) var progress: [FocusProgressReminder] = []
-    private(set) var progressCancelCount = 0
-
-    func requestAuthorizationIfNeeded() async {}
-    func scheduleBackup(at date: Date, title: String) { backups.append(date) }
-    func cancelBackup() { cancelCount += 1 }
-    func postTimeUp(title: String) { timeUps.append(title) }
-    func scheduleProgress(_ reminders: [FocusProgressReminder], title: String) { progress = reminders }
-    func cancelProgress() { progressCancelCount += 1; progress = [] }
-}

@@ -1,0 +1,81 @@
+import Foundation
+
+/// Abstraction over task data access. Upper layers only know `TaskSnapshot`, regardless of whether storage is SwiftData or something else.
+@MainActor
+public protocol TaskRepository: AnyObject {
+    /// Returns tasks that overlap the interval on the calendar (half-open interval semantics), sorted by start time ascending.
+    /// Calendar events overlapping the interval (ideas and goals excluded)
+    func tasks(in interval: DateInterval) throws -> [TaskSnapshot]
+    /// All tasks of a kind (Inbox ideas, goals). Small sets, no paging
+    func tasks(kind: TaskKind) throws -> [TaskSnapshot]
+    /// Events linked to a goal
+    func events(linkedTo goalID: UUID) throws -> [TaskSnapshot]
+    func task(id: UUID) throws -> TaskSnapshot?
+    /// Tasks whose title or notes contain the keyword, sorted by start time descending, at most `limit`.
+    func search(_ keyword: String, limit: Int) throws -> [TaskSnapshot]
+    func allTasks() throws -> [TaskSnapshot]
+    func isEmpty() throws -> Bool
+    func insert(_ snapshots: [TaskSnapshot]) throws
+    /// Updates if it exists, inserts otherwise
+    func upsert(_ snapshot: TaskSnapshot) throws
+    func delete(id: UUID) throws
+}
+
+/// In-memory implementation for unit tests and SwiftUI previews.
+@MainActor
+public final class InMemoryTaskRepository: TaskRepository {
+    public private(set) var items: [TaskSnapshot]
+    private let calendar: Calendar
+
+    public init(items: [TaskSnapshot] = [], calendar: Calendar = .app) {
+        self.items = items
+        self.calendar = calendar
+    }
+
+    public func tasks(in interval: DateInterval) throws -> [TaskSnapshot] {
+        items
+            .filter { $0.kind == .event && $0.displayInterval(in: calendar).overlapsHalfOpen(interval) }
+            .sorted { $0.start < $1.start }
+    }
+
+    public func tasks(kind: TaskKind) throws -> [TaskSnapshot] {
+        items.filter { $0.kind == kind }.sorted { $0.start < $1.start }
+    }
+
+    public func events(linkedTo goalID: UUID) throws -> [TaskSnapshot] {
+        items.filter { $0.kind == .event && $0.goalID == goalID }.sorted { $0.start < $1.start }
+    }
+
+    public func task(id: UUID) throws -> TaskSnapshot? {
+        items.first { $0.id == id }
+    }
+
+    public func search(_ keyword: String, limit: Int) throws -> [TaskSnapshot] {
+        Array(items
+            .filter { $0.title.localizedStandardContains(keyword) || $0.notes.localizedStandardContains(keyword) }
+            .sorted { $0.start > $1.start }
+            .prefix(limit))
+    }
+
+    public func allTasks() throws -> [TaskSnapshot] {
+        items.sorted { $0.start < $1.start }
+    }
+
+    public func isEmpty() throws -> Bool { items.isEmpty }
+
+    public func insert(_ snapshots: [TaskSnapshot]) throws {
+        items.append(contentsOf: snapshots)
+    }
+
+    public func upsert(_ snapshot: TaskSnapshot) throws {
+        if let index = items.firstIndex(where: { $0.id == snapshot.id }) {
+            items[index] = snapshot
+        } else {
+            items.append(snapshot)
+        }
+    }
+
+    public func delete(id: UUID) throws {
+        items.removeAll { $0.id == id }
+    }
+}

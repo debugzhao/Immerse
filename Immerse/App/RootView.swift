@@ -1,3 +1,4 @@
+import ImmerseCore
 import SwiftUI
 
 /// Main window: sidebar + calendar, with a toast floating at the bottom and a reminder panel when time is up

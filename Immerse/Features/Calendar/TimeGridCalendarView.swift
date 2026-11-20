@@ -1,3 +1,4 @@
+import ImmerseCore
 import SwiftUI
 
 /// Time grid shared by day / week views: date bar + all-day row + scrollable 24-hour grid

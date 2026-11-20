@@ -104,6 +104,8 @@ final class AppEnvironment {
 
 ## 3. 目录结构
 
+> 2026-11-20 更新：Models、Data、TaskStore、SettingsStore、专注引擎和纯逻辑已经迁到本地 Swift Package `ImmerseKit/`（`ImmerseCore` 模块），与 iOS 版共用；下面的结构是迁移前的样子。现状和原因见 [ios-agent-design.md §8.1](ios-agent-design.md)。
+
 ```
 schedule-management/
 ├── project.yml                      # XcodeGen 配置

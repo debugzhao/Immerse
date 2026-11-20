@@ -1,3 +1,4 @@
+import ImmerseCore
 import SwiftUI
 
 /// Main calendar area: top bar + current view + keyboard shortcuts (event details are edited in a centered popup)

@@ -1,3 +1,4 @@
+import ImmerseCore
 import SwiftUI
 
 /// Search results overlay: matches title or notes; click to jump to the date and select

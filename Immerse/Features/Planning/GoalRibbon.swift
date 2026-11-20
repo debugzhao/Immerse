@@ -1,3 +1,4 @@
+import ImmerseCore
 import SwiftUI
 
 /// Strip above the calendar: goals whose period overlaps what's on screen, with progress. Hidden when there are none

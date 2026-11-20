@@ -1,3 +1,4 @@
+import ImmerseCore
 import SwiftUI
 
 /// Text next to the menu bar icon: shows remaining time while focusing, otherwise only the icon

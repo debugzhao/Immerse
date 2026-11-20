@@ -1,4 +1,5 @@
 import AppKit
+import ImmerseCore
 import SwiftUI
 
 extension Priority {

@@ -1,3 +1,4 @@
+import ImmerseCore
 import SwiftUI
 
 /// Month view: 6 rows × 7 columns, up to 3 events per cell, overflow shown as "+N"; click a date to open day view

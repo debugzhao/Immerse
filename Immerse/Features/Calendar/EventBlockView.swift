@@ -1,3 +1,4 @@
+import ImmerseCore
 import SwiftUI
 
 /// One event block in the time grid: translucent priority-colored fill + left color bar + title and time

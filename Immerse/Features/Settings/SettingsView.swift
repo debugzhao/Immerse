@@ -1,3 +1,4 @@
+import ImmerseCore
 import SwiftUI
 
 /// Settings window (⌘,)

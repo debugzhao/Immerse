@@ -1,3 +1,4 @@
+import ImmerseCore
 import SwiftUI
 
 /// Sidebar "Today" task list: sorted by priority, then start time; click the circle to complete

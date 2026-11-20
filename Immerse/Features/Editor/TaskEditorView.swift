@@ -1,3 +1,4 @@
+import ImmerseCore
 import SwiftUI
 
 /// Notion-style event sheet: centered card + large title + property list + notes body. Create and edit share one form.

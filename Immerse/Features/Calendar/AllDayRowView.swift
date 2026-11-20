@@ -1,3 +1,4 @@
+import ImmerseCore
 import SwiftUI
 
 /// All-day row below the date bar: all-day / multi-day tasks drawn as horizontal bars, stacked in lanes when there are several.

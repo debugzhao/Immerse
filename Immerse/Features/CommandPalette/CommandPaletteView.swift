@@ -1,3 +1,4 @@
+import ImmerseCore
 import SwiftUI
 
 /// ⌘K command palette: type natural language to quickly create an event, run a command, or jump to an event.

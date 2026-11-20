@@ -1,3 +1,4 @@
+import ImmerseCore
 import SwiftUI
 
 /// First-launch guide: welcome → notification permission → Do Not Disturb shortcuts → Clock countdown shortcut.

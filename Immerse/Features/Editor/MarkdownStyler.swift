@@ -1,4 +1,5 @@
 import AppKit
+import ImmerseCore
 
 /// Custom attributes read by `MarkdownLayoutManager` to hide markers and draw block decorations
 extension NSAttributedString.Key {

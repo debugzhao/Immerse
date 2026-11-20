@@ -1,3 +1,4 @@
+import ImmerseCore
 import SwiftUI
 
 /// Bottom toast: auto-dismisses after 4 seconds, optionally with an "撤销" (undo) button

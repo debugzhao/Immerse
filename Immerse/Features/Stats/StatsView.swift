@@ -1,4 +1,5 @@
 import Charts
+import ImmerseCore
 import SwiftUI
 
 /// Focus stats window: today / this week overview, last-7-days bar chart, most-focused tasks this week

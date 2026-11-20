@@ -17,12 +17,20 @@ settings:
     CODE_SIGN_STYLE: Manual
     DEVELOPMENT_TEAM: ""
 
+packages:
+  # Models, data, stores and pure logic shared with the iOS app
+  ImmerseKit:
+    path: ImmerseKit
+
 targets:
   Immerse:
     type: application
     platform: macOS
     sources:
       - Immerse
+    dependencies:
+      - package: ImmerseKit
+        product: ImmerseCore
     info:
       path: Immerse/Resources/Info.plist
       properties:

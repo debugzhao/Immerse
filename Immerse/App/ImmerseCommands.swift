@@ -1,4 +1,5 @@
 import AppKit
+import ImmerseCore
 import SwiftUI
 
 /// Menu bar commands: new, delete, undo / redo, search, focus
