@@ -10,12 +10,10 @@ enum CalendarMetrics {
     static let allDayMinHeight: CGFloat = 28
     /// Hour to scroll to by default on open
     static let initialScrollHour = 8
-    /// Minimum height of an event block, and the shortest duration it maps to for overlap checks
-    static let minimumEventHeight: CGFloat = 20
+    /// Minimum height of an event block (15 minutes), and the shortest duration it maps to for overlap checks.
+    /// Kept at exactly one snap step so every 15-minute event is drawn the same height and back-to-back ones stack
+    static let minimumEventHeight: CGFloat = 12
     static var minimumEventDuration: TimeInterval { TimeInterval(minimumEventHeight / hourHeight * 3600) }
-    /// A short event followed closely by another may shrink to this height so the two stack instead of sitting side by side
-    static let compactEventHeight: CGFloat = 12
-    static var compactEventDuration: TimeInterval { TimeInterval(compactEventHeight / hourHeight * 3600) }
 
     static var gridHeight: CGFloat { hourHeight * 24 }
 

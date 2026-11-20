@@ -59,32 +59,25 @@ struct EventLayoutEngineTests {
         #expect(EventLayoutEngine.layout([a, b], minimumDuration: 25 * 60)[b.id]?.columnCount == 2)
     }
 
-    @Test func 首尾相接的短日程上下排列而不是并排() {
-        // 12:00–12:15 then 12:15–12:30: padding the first to 25 minutes must not push the second aside
+    @Test func 首尾相接的短日程上下排列且高度一致() {
+        // 12:00–12:15 then 12:15–12:30: with a 15-minute minimum neither is padded, so they stack at the same height
         let a = item(12, 12.25), b = item(12.25, 12.5)
-        let result = EventLayoutEngine.layout([a, b], minimumDuration: 25 * 60, compactDuration: 15 * 60)
+        let result = EventLayoutEngine.layout([a, b], minimumDuration: 15 * 60)
         #expect(result[a.id] == LayoutPlacement(column: 0, columnCount: 1, span: 1))
         #expect(result[b.id] == LayoutPlacement(column: 0, columnCount: 1, span: 1))
 
-        let ends = EventLayoutEngine.displayEnds([a, b], minimumDuration: 25 * 60, compactDuration: 15 * 60)
-        #expect(ends[a.id] == a.end)                                  // stops where B starts
-        #expect(ends[b.id] == b.start.addingTimeInterval(25 * 60))   // nothing below B: full padding
+        let ends = EventLayoutEngine.displayEnds([a, b], minimumDuration: 15 * 60)
+        #expect(ends[a.id] == a.end)
+        #expect(ends[b.id] == b.end)
     }
 
-    @Test func 短日程补高只延伸到下一个日程开始处() {
-        // A 9:00–9:05, B at 9:20: A grows to 9:20 instead of 9:25, so they still stack
-        let a = item(9, 9 + 5.0 / 60), b = item(9 + 20.0 / 60, 10)
-        let ends = EventLayoutEngine.displayEnds([a, b], minimumDuration: 25 * 60, compactDuration: 15 * 60)
-        #expect(ends[a.id] == b.start)
-        #expect(EventLayoutEngine.layout([a, b], minimumDuration: 25 * 60, compactDuration: 15 * 60)[b.id]?.columnCount == 1)
-    }
-
-    @Test func 间隔太小时仍按最小高度并排() {
-        // A 9:00–9:05, B at 9:10: stacking would leave A under the compact height, so keep them side by side
-        let a = item(9, 9 + 5.0 / 60), b = item(9 + 10.0 / 60, 10)
-        let ends = EventLayoutEngine.displayEnds([a, b], minimumDuration: 25 * 60, compactDuration: 15 * 60)
-        #expect(ends[a.id] == a.start.addingTimeInterval(25 * 60))
-        #expect(EventLayoutEngine.layout([a, b], minimumDuration: 25 * 60, compactDuration: 15 * 60)[b.id]?.columnCount == 2)
+    @Test func 短日程补高只看自身时长() {
+        // A 5-minute event is padded to 15 minutes whether or not something follows it
+        let a = item(9, 9 + 5.0 / 60), b = item(11, 11 + 5.0 / 60), c = item(11.25, 12)
+        let ends = EventLayoutEngine.displayEnds([a, b, c], minimumDuration: 15 * 60)
+        #expect(ends[a.id] == a.start.addingTimeInterval(15 * 60))
+        #expect(ends[b.id] == b.start.addingTimeInterval(15 * 60))
+        #expect(EventLayoutEngine.layout([a, b, c], minimumDuration: 15 * 60)[c.id]?.columnCount == 1)
     }
 
     @Test func 全天行按天分道() {

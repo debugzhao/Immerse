@@ -90,7 +90,8 @@ struct EventBlockView: View {
                 .padding(.leading, isNarrow ? 4 : 6)
                 .padding(.trailing, isNarrow ? 2 : 4)
                 .padding(.vertical, height >= 34 ? 4 : isCompact ? 0 : 2)
-                .frame(width: geometry.size.width, height: geometry.size.height, alignment: .topLeading)
+                // A one-line compact block centers its title so it isn't clipped at the bottom
+                .frame(width: geometry.size.width, height: geometry.size.height, alignment: isCompact ? .leading : .topLeading)
             }
         }
         .background(color.opacity(fillOpacity), in: shape)

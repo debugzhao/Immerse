@@ -22,35 +22,13 @@ struct LayoutPlacement: Equatable, Sendable {
 /// 3. Assign columns: put each event in the first column that has freed up, or open a new one
 /// 4. Expand: if adjacent columns to the right are empty during its span, extend rightward to fill them
 enum EventLayoutEngine {
-    /// How far down each event is drawn.
-    ///
-    /// Very short events are padded to `minimumDuration` so their title stays readable, but the padding stops where the
-    /// next event starts: back-to-back events then stack instead of being pushed side by side. If that would leave
-    /// less than `compactDuration`, the block keeps its full padding (and the overlap check puts them side by side).
-    /// Pass nil for `compactDuration` to always pad fully.
-    static func displayEnds(_ items: [LayoutItem], minimumDuration: TimeInterval,
-                            compactDuration: TimeInterval? = nil) -> [UUID: Date] {
-        let starts = items.map(\.start).sorted()
-        var result: [UUID: Date] = [:]
-        for item in items {
-            let padded = item.start.addingTimeInterval(minimumDuration)
-            guard item.end < padded else {
-                result[item.id] = item.end
-                continue
-            }
-            var end = padded
-            // The earliest event starting at or after this one's real end: the padding must not reach into it
-            if let compactDuration, let next = starts.first(where: { $0 >= item.end }), next < padded,
-               next.timeIntervalSince(item.start) >= compactDuration {
-                end = next
-            }
-            result[item.id] = max(item.end, end)
-        }
-        return result
+    /// How far down each event is drawn: very short events are padded to `minimumDuration` so they stay visible.
+    /// Depends only on the event itself, so events of the same length are always drawn the same height
+    static func displayEnds(_ items: [LayoutItem], minimumDuration: TimeInterval) -> [UUID: Date] {
+        Dictionary(uniqueKeysWithValues: items.map { ($0.id, max($0.end, $0.start.addingTimeInterval(minimumDuration))) })
     }
 
-    static func layout(_ items: [LayoutItem], minimumDuration: TimeInterval = 0,
-                       compactDuration: TimeInterval? = nil) -> [UUID: LayoutPlacement] {
+    static func layout(_ items: [LayoutItem], minimumDuration: TimeInterval = 0) -> [UUID: LayoutPlacement] {
         struct Entry {
             let id: UUID
             let start: Date
@@ -60,7 +38,7 @@ enum EventLayoutEngine {
         }
 
         // Very short events still render at a minimum height, so use that height for overlap checks to keep text from colliding
-        let ends = displayEnds(items, minimumDuration: minimumDuration, compactDuration: compactDuration)
+        let ends = displayEnds(items, minimumDuration: minimumDuration)
         let sorted = items
             .map { Entry(id: $0.id, start: $0.start, end: ends[$0.id] ?? $0.end, priority: $0.priority) }
             .sorted { a, b in

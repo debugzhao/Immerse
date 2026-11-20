@@ -34,16 +34,8 @@ struct DayColumnView: View {
     var body: some View {
         let segments = makeSegments()
         let items = segments.map { LayoutItem(id: $0.id, start: $0.start, end: $0.end, priority: $0.task.priority) }
-        let placements = EventLayoutEngine.layout(
-            items,
-            minimumDuration: CalendarMetrics.minimumEventDuration,
-            compactDuration: CalendarMetrics.compactEventDuration
-        )
-        let displayEnds = EventLayoutEngine.displayEnds(
-            items,
-            minimumDuration: CalendarMetrics.minimumEventDuration,
-            compactDuration: CalendarMetrics.compactEventDuration
-        )
+        let placements = EventLayoutEngine.layout(items, minimumDuration: CalendarMetrics.minimumEventDuration)
+        let displayEnds = EventLayoutEngine.displayEnds(items, minimumDuration: CalendarMetrics.minimumEventDuration)
 
         GeometryReader { geometry in
             let width = geometry.size.width
