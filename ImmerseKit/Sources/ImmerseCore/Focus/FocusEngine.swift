@@ -220,6 +220,12 @@ public final class FocusEngine {
         finish(.abandoned)
     }
 
+    /// Close after time is up without marking the task done: the focus time is kept, the task goes back to to-do
+    public func close() {
+        guard phase == .timeUp else { return }
+        finish(.closed)
+    }
+
     private func finish(_ reason: FocusEndReason) {
         guard let state = session else { return }
         let endedAt = timeUpAt ?? clock()
@@ -230,7 +236,8 @@ public final class FocusEngine {
             logger.error("保存专注记录失败：\(error.localizedDescription, privacy: .public)")
         }
         if taskStore.task(id: state.taskID)?.kind != .goal {
-            taskStore.setStatusWithoutUndo(reason == .abandoned ? .todo : .done, for: state.taskID)
+            let isDone = reason == .completed || reason == .finishedEarly
+            taskStore.setStatusWithoutUndo(isDone ? .done : .todo, for: state.taskID)
         }
 
         let wasTimeUp = phase == .timeUp
@@ -337,6 +344,7 @@ public final class FocusEngine {
         switch action {
         case .complete: phase == .timeUp ? complete() : finishEarly()
         case .extend: extend()
+        case .close: close()
         }
     }
 

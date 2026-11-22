@@ -55,13 +55,15 @@ public final class NotificationService: NSObject, FocusNotifying, AutoFocusNotif
                                             title: "标记完成", options: [])
         let extend = UNNotificationAction(identifier: FocusNotificationAction.extend.rawValue,
                                           title: "再延长 15 分钟", options: [])
+        let close = UNNotificationAction(identifier: FocusNotificationAction.close.rawValue,
+                                         title: "关闭", options: [])
         let snooze = UNNotificationAction(identifier: AutoFocusAction.snooze.rawValue, title: "推迟 5 分钟", options: [])
         let skip = UNNotificationAction(identifier: AutoFocusAction.skip.rawValue, title: "跳过", options: [])
         let abandon = UNNotificationAction(identifier: AutoFocusAction.abandon.rawValue, title: "放弃本次", options: [])
         let switchFocus = UNNotificationAction(identifier: AutoFocusAction.switchFocus.rawValue, title: "切换到这个日程", options: [])
         let startNow = UNNotificationAction(identifier: AutoFocusAction.startNow.rawValue, title: "开始专注", options: [.foreground])
         center.setNotificationCategories([
-            UNNotificationCategory(identifier: Self.categoryID, actions: [complete, extend],
+            UNNotificationCategory(identifier: Self.categoryID, actions: [complete, extend, close],
                                    intentIdentifiers: [], options: []),
             UNNotificationCategory(identifier: Self.upcomingCategoryID, actions: [startNow, snooze, skip],
                                    intentIdentifiers: [], options: []),

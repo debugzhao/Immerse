@@ -8,12 +8,15 @@ public enum FocusEndReason: String, Codable, CaseIterable, Sendable {
     case finishedEarly
     /// Abandoned
     case abandoned
+    /// Time ran out and the user closed the session without marking the task done: the focus time still counts
+    case closed
 
     public var title: String {
         switch self {
         case .completed: "完成"
         case .finishedEarly: "提前完成"
         case .abandoned: "放弃"
+        case .closed: "未完成"
         }
     }
 }

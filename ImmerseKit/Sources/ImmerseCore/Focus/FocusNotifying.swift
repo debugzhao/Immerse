@@ -25,6 +25,7 @@ public struct FocusProgressReminder: Equatable {
 public enum FocusNotificationAction: String {
     case complete = "COMPLETE"
     case extend = "EXTEND_15"
+    case close = "CLOSE"
 }
 
 /// For tests: records calls

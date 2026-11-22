@@ -158,6 +158,9 @@ struct FocusControlPanel: View {
                 Button("标记完成") { engine.complete() }
                     .buttonStyle(.borderedProminent)
                 Button("再延长 15 分钟") { engine.extend() }
+                // Neither done nor extended: end the session and keep the task open
+                Button("关闭") { engine.close() }
+                    .help("结束这次专注，任务保持未完成")
             }
             .controlSize(size)
         } else {

@@ -114,6 +114,40 @@ struct FocusEngineTests {
         #expect(record?.focusedSeconds == 3600)
     }
 
+    @Test func 时间到后关闭保留专注时长但任务未完成() async {
+        engine.start(task)
+        clock.advance(minutes: 60)
+        engine.tick()
+        await settle()
+        clock.advance(minutes: 3)
+        engine.close()
+        #expect(engine.phase == .idle)
+        #expect(engine.session == nil)
+        #expect(taskStore.task(id: task.id)?.status == .todo)
+        let record = try? #require(sessions.finished.first)
+        #expect(record?.reason == .closed)
+        #expect(record?.focusedSeconds == 3600)
+        #expect(dnd.log == ["on", "off"])   // DND was already off at time-up; closing must not toggle it again
+    }
+
+    @Test func 计时中关闭无效() {
+        engine.start(task)
+        clock.advance(minutes: 10)
+        engine.close()
+        #expect(engine.phase == .running)
+        #expect(sessions.finished.isEmpty)
+    }
+
+    @Test func 通知上点关闭结束专注() async {
+        engine.start(task)
+        clock.advance(minutes: 60)
+        engine.tick()
+        await settle()
+        engine.handle(.close)
+        #expect(engine.phase == .idle)
+        #expect(sessions.finished.first?.reason == .closed)
+    }
+
     @Test func 时间到后延长15分钟回到计时() async {
         engine.start(task)
         clock.advance(minutes: 60)

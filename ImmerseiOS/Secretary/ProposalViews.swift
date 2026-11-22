@@ -249,6 +249,7 @@ extension FocusEndReason {
         case .completed: "按时完成"
         case .finishedEarly: "提前结束"
         case .abandoned: "中途放弃"
+        case .closed: "到点未完成"
         }
     }
 }

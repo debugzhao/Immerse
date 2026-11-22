@@ -69,7 +69,11 @@ struct ActiveFocusPanel: View {
                 } label: {
                     Label("沉浸模式", systemImage: "arrow.up.left.and.arrow.down.right")
                 }
-                Button("放弃本次", role: .destructive) { confirmsAbandon = true }
+                if focusEngine.phase == .timeUp {
+                    Button("关闭") { focusEngine.close() }
+                } else {
+                    Button("放弃本次", role: .destructive) { confirmsAbandon = true }
+                }
             }
             .font(.callout)
             Spacer()
